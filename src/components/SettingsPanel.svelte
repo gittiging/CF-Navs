@@ -156,7 +156,7 @@
       },
       search_engine: { current, engines },
       card_size: {
-        width: clampNumber(source.card_size.width, 100, 400),
+        width: clampNumber(source.card_size.width, 80, 400),
         height: clampNumber(source.card_size.height, 50, 300),
       },
       card_style: source.card_style === 'icon' ? 'icon' : 'info',
@@ -191,7 +191,7 @@
   $: backgroundValid = normalizedForm.background.value.length > 0
   $: cardSizeValid =
     Number.isFinite(normalizedForm.card_size.width) &&
-    normalizedForm.card_size.width >= 100 &&
+    normalizedForm.card_size.width >= 80 &&
     normalizedForm.card_size.width <= 400 &&
     Number.isFinite(normalizedForm.card_size.height) &&
     normalizedForm.card_size.height >= 50 &&
@@ -368,7 +368,7 @@
         <div class="form-grid">
           <label class="field">
             <span>最小宽度 (px)</span>
-            <input bind:value={form.card_size.width} type="number" min="100" max="400" step="10" />
+            <input bind:value={form.card_size.width} type="number" min="80" max="400" step="10" />
             <small>书签卡片最小宽度，建议 180-280。</small>
           </label>
           <label class="field">

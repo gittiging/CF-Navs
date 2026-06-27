@@ -38,7 +38,6 @@
         <p>共 {bookmarks.length} 个站点</p>
       </div>
     </div>
-    <a class="section-anchor" href={`#${sectionId}`}>定位</a>
   </header>
 
   {#if bookmarks.length > 0}
@@ -123,12 +122,6 @@
     font-size: 0.9rem;
   }
 
-  .section-anchor {
-    flex-shrink: 0;
-    color: #2563eb;
-    text-decoration: none;
-    font-size: 0.9rem;
-  }
 
   .bookmark-grid {
     display: grid;
@@ -168,9 +161,6 @@
     color: rgba(148, 163, 184, 0.92);
   }
 
-  :global([data-theme='dark']) .section-anchor {
-    color: #93c5fd;
-  }
 
   :global([data-theme='dark']) .empty-card {
     border-color: rgba(148, 163, 184, 0.32);

@@ -170,7 +170,6 @@
           <p class="summary-label">当前内容</p>
           <h2>共 {sortedCategories.length} 个分类，{totalBookmarks} 个站点</h2>
         </div>
-        <p class="summary-text">通过目录快速定位分类，在分类标题旁可直接新增链接。</p>
       </div>
 
       {#if sortedCategories.length > 0}
@@ -329,7 +328,6 @@
   }
 
   :global([data-theme='dark']) .summary-label,
-  :global([data-theme='dark']) .summary-text,
   :global([data-theme='dark']) .empty-panel p {
     color: rgba(203, 213, 225, 0.92);
   }
@@ -357,8 +355,7 @@
   }
 
   .summary-label,
-  .content-summary h2,
-  .summary-text {
+  .content-summary h2 {
     margin: 0;
   }
 
@@ -374,12 +371,6 @@
     font-size: 1.18rem;
   }
 
-  .summary-text {
-    max-width: 22rem;
-    color: rgba(71, 85, 105, 0.92);
-    line-height: 1.65;
-    text-align: right;
-  }
 
   .section-list {
     display: flex;
