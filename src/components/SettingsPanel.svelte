@@ -6,6 +6,8 @@
     Settings,
     ThemeMode,
   } from '../../shared/types'
+  import { splitCssColorAlpha } from '../lib/color'
+  import ColorAlphaInput from './ColorAlphaInput.svelte'
 
   type SettingsPanelValue = Pick<
     Settings,
@@ -150,6 +152,12 @@
     const current = engines.some((engine) => engine.name === source.search_engine.current)
       ? source.search_engine.current
       : engines[0]?.name ?? ''
+    const maskColor = splitCssColorAlpha(source.background.maskColor, '#000000', source.background.mask)
+    const cardBackgroundColor = splitCssColorAlpha(
+      source.card_background_color,
+      '#ffffff',
+      source.card_background_opacity,
+    )
     return {
       site_title: source.site_title.trim(),
       site_title_color: source.site_title_color?.trim() || '#ffffff',
@@ -161,8 +169,8 @@
         type: source.background.type,
         value: source.background.value.trim(),
         blur: clampNumber(source.background.blur, 0, 40),
-        mask: clampNumber(source.background.mask, 0, 1),
-        maskColor: source.background.maskColor?.trim() || '#000000',
+        mask: clampNumber(maskColor.alpha, 0, 1),
+        maskColor: maskColor.color,
       },
       search_engine: { current, engines },
       card_size: {
@@ -172,8 +180,8 @@
       card_style: source.card_style === 'icon' ? 'icon' : 'info',
       card_icon_size: clampNumber(source.card_icon_size, 40, 100),
       card_show_description: source.card_show_description,
-      card_background_color: source.card_background_color?.trim() || '#ffffff',
-      card_background_opacity: clampNumber(source.card_background_opacity, 0, 1),
+      card_background_color: cardBackgroundColor.color,
+      card_background_opacity: clampNumber(cardBackgroundColor.alpha, 0, 1),
     }
   }
 
@@ -283,19 +291,17 @@
             <small>将显示在页面标题与管理界面中。</small>
           </label>
 
-          <label class="field">
+          <div class="field">
             <span>标题颜色</span>
-            <div class="color-picker-row">
-              <input
-                bind:value={form.site_title_color}
-                type="text"
-                placeholder="#ffffff"
-                maxlength="30"
-              />
-              <span class="color-swatch" style="background: {form.site_title_color};" title="当前标题颜色预览"></span>
-            </div>
+            <ColorAlphaInput
+              bind:value={form.site_title_color}
+              placeholder="#ffffff"
+              inputLabel="标题颜色值"
+              swatchTitle="选择标题颜色"
+              alphaText="标题透明度"
+            />
             <small>首页搜索栏上方标题的文字颜色。</small>
-          </label>
+          </div>
 
           <label class="field">
             <span>标题文字大小 <em>{form.site_title_font_size}px</em></span>
@@ -376,19 +382,18 @@
             <small>叠加在背景上的遮罩，数值越大背景越淡。</small>
           </label>
 
-          <label class="field">
+          <div class="field">
             <span>遮罩颜色</span>
-            <div class="color-picker-row">
-              <input
-                bind:value={form.background.maskColor}
-                type="text"
-                placeholder="#000000"
-                maxlength="30"
-              />
-              <span class="color-swatch" style="background: {form.background.maskColor};" title="当前遮罩颜色预览"></span>
-            </div>
+            <ColorAlphaInput
+              bind:value={form.background.maskColor}
+              bind:alpha={form.background.mask}
+              placeholder="#000000"
+              inputLabel="遮罩颜色值"
+              swatchTitle="选择遮罩颜色"
+              alphaText="遮罩透明度"
+            />
             <small>遮挡背景的蒙层色值，例如 <code>#000000</code>（黑色默认）或 <code>rgba(0,0,0,0.5)</code>。</small>
-          </label>
+          </div>
         </div>
       </fieldset>
 
@@ -413,19 +418,18 @@
       <fieldset class="group" disabled={saving}>
         <legend>卡片背景</legend>
         <div class="form-grid">
-          <label class="field">
+          <div class="field">
             <span>卡片颜色</span>
-            <div class="color-picker-row">
-              <input
-                bind:value={form.card_background_color}
-                type="text"
-                placeholder="#ffffff"
-                maxlength="30"
-              />
-              <span class="color-swatch" style="background: {form.card_background_color};" title="当前卡片颜色预览"></span>
-            </div>
+            <ColorAlphaInput
+              bind:value={form.card_background_color}
+              bind:alpha={form.card_background_opacity}
+              placeholder="#ffffff"
+              inputLabel="卡片颜色值"
+              swatchTitle="选择卡片颜色"
+              alphaText="卡片透明度"
+            />
             <small>书签卡片背景色，例如 <code>#ffffff</code>（白色默认）。</small>
-          </label>
+          </div>
 
           <label class="field">
             <span>卡片透明度 <em>{form.card_background_opacity.toFixed(2)}</em></span>
@@ -740,25 +744,6 @@
 
   .inline-input input {
     flex: 1 1 auto;
-  }
-
-  .color-picker-row {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-  }
-
-  .color-picker-row input {
-    flex: 1;
-  }
-
-  .color-swatch {
-    width: 36px;
-    height: 36px;
-    flex-shrink: 0;
-    border-radius: 8px;
-    border: 1px solid #cbd5e1;
-    cursor: default;
   }
 
   .toggle-field {

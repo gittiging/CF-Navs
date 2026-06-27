@@ -14,6 +14,7 @@
   import Admin from './views/Admin.svelte'
   import BookmarkEditModal from './components/BookmarkEditModal.svelte'
   import { api, getErrorMessage } from './lib/api'
+  import { colorToRgbString } from './lib/color'
   import { prepareImportPayload, type ImportSource } from './lib/importData'
   import { adminStore, authStore, configStore, isAuthenticated, publicStore } from './lib/stores'
 
@@ -157,7 +158,7 @@
     const cardOpacity = typeof settings.card_background_opacity === 'number'
       ? Math.min(1, Math.max(0, settings.card_background_opacity))
       : 0.9
-    const cardRgb = hexToRgb(cardColor)
+    const cardRgb = colorToRgbString(cardColor)
 
     return [
       `--home-background: ${layer};`,
@@ -167,23 +168,6 @@
       `--card-bg-rgb: ${cardRgb};`,
       `--card-bg-opacity: ${cardOpacity};`,
     ].join(' ')
-  }
-
-  function hexToRgb(hex: string): string {
-    const cleaned = hex.replace(/^#/, '')
-    if (cleaned.length === 3) {
-      const r = parseInt(cleaned[0] + cleaned[0], 16)
-      const g = parseInt(cleaned[1] + cleaned[1], 16)
-      const b = parseInt(cleaned[2] + cleaned[2], 16)
-      return isNaN(r) || isNaN(g) || isNaN(b) ? '255 255 255' : `${r} ${g} ${b}`
-    }
-    if (cleaned.length >= 6) {
-      const r = parseInt(cleaned.slice(0, 2), 16)
-      const g = parseInt(cleaned.slice(2, 4), 16)
-      const b = parseInt(cleaned.slice(4, 6), 16)
-      return isNaN(r) || isNaN(g) || isNaN(b) ? '255 255 255' : `${r} ${g} ${b}`
-    }
-    return '255 255 255'
   }
 
   let systemPrefersDark = false
