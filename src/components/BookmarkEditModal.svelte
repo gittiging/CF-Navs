@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte'
   import {
     DEFAULT_LOGO_SURF_SCHEME,
     LOGO_SURF_COLOR_SCHEMES,
@@ -51,12 +52,15 @@
   let fetchingFavicon = false
   let faviconError = ''
   let selectedLogoSchemeName = DEFAULT_LOGO_SURF_SCHEME.name
+  let previousBodyOverflow: string | null = null
+  let previousDocumentOverflow: string | null = null
 
   // 当前链接下的图标候选
   let candidates: IconCandidate[] = []
   let candidateError = ''
 
   $: nextKey = JSON.stringify({ open, mode, value, categoryIds: categories.map((item) => item.id) })
+  $: setPageScrollLocked(open)
   $: if (nextKey !== formKey) {
     formKey = nextKey
     faviconError = ''
@@ -144,6 +148,25 @@
     return /^https?:\/\//i.test(icon) || /^data:image\//i.test(icon)
   }
 
+  function setPageScrollLocked(locked: boolean) {
+    if (typeof document === 'undefined') return
+
+    if (locked && previousBodyOverflow === null) {
+      previousBodyOverflow = document.body.style.overflow
+      previousDocumentOverflow = document.documentElement.style.overflow
+      document.documentElement.style.overflow = 'hidden'
+      document.body.style.overflow = 'hidden'
+      return
+    }
+
+    if (!locked && previousBodyOverflow !== null) {
+      document.documentElement.style.overflow = previousDocumentOverflow ?? ''
+      document.body.style.overflow = previousBodyOverflow
+      previousBodyOverflow = null
+      previousDocumentOverflow = null
+    }
+  }
+
   function selectCandidate(candidate: IconCandidate) {
     if (candidate.source === 'logo_surf') {
       selectLogoColorScheme(DEFAULT_LOGO_SURF_SCHEME)
@@ -216,6 +239,10 @@
     if (!form.id || !onDelete || loading || deleting) return
     await onDelete({ id: form.id, title: form.title.trim() })
   }
+
+  onDestroy(() => {
+    setPageScrollLocked(false)
+  })
 </script>
 
 {#if open}
@@ -390,33 +417,55 @@
   .modal-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 30;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    padding: 14px;
     background: rgba(15, 23, 42, 0.56);
+    overflow: hidden;
+    overscroll-behavior: contain;
+  }
+
+  .modal-backdrop::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.18);
+    backdrop-filter: blur(2px);
+    pointer-events: none;
   }
 
   .modal-card {
     position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
     width: min(100%, 640px);
+    max-height: calc(100vh - 28px);
+    max-height: calc(100dvh - 28px);
+    min-height: 0;
+    overflow: hidden;
+    overscroll-behavior: contain;
     border-radius: 18px;
     background: #ffffff;
     box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
-    padding: 20px;
+    padding: 0;
+    scrollbar-gutter: stable;
   }
 
   .modal-header {
+    flex: 0 0 auto;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 18px;
+    gap: 12px;
+    margin: 0;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid #e2e8f0;
   }
 
   .modal-eyebrow {
-    margin: 0 0 6px;
+    margin: 0 0 4px;
     font-size: 12px;
     color: #64748b;
   }
@@ -428,13 +477,18 @@
   }
 
   .modal-form {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     display: grid;
-    gap: 14px;
+    gap: 8px;
+    padding: 12px 16px 0;
   }
 
   label {
     display: grid;
-    gap: 8px;
+    gap: 5px;
     color: #334155;
     font-size: 14px;
   }
@@ -445,8 +499,8 @@
     width: 100%;
     box-sizing: border-box;
     border: 1px solid #cbd5e1;
-    border-radius: 12px;
-    padding: 10px 12px;
+    border-radius: 10px;
+    padding: 7px 10px;
     font-size: 14px;
     color: #0f172a;
     background: #ffffff;
@@ -455,7 +509,7 @@
 
   textarea {
     resize: vertical;
-    min-height: 90px;
+    min-height: 56px;
   }
 
   input:focus,
@@ -468,7 +522,7 @@
 
   .field-label {
     color: #334155;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
   }
 
@@ -487,7 +541,7 @@
 
   .icon-picker-section {
     display: grid;
-    gap: 8px;
+    gap: 5px;
   }
 
   .icon-candidates {
@@ -500,10 +554,11 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    padding: 10px 6px;
+    gap: 4px;
+    min-height: 62px;
+    padding: 6px;
     border: 2px solid #e2e8f0;
-    border-radius: 12px;
+    border-radius: 10px;
     background: #ffffff;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -521,8 +576,8 @@
   }
 
   .candidate-card img {
-    width: 36px;
-    height: 36px;
+    width: 28px;
+    height: 28px;
     object-fit: contain;
     border-radius: 6px;
   }
@@ -541,7 +596,7 @@
 
   .logo-scheme-section {
     display: grid;
-    gap: 8px;
+    gap: 5px;
   }
 
   .scheme-header {
@@ -559,18 +614,22 @@
   .logo-scheme-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
+    gap: 6px;
+    max-height: 118px;
+    overflow-y: auto;
+    overscroll-behavior: auto;
+    padding-right: 2px;
   }
 
   .scheme-button {
     display: grid;
-    grid-template-columns: 34px minmax(0, 1fr);
+    grid-template-columns: 28px minmax(0, 1fr);
     align-items: center;
-    gap: 8px;
-    min-height: 50px;
-    padding: 8px;
+    gap: 5px;
+    min-height: 38px;
+    padding: 5px;
     border: 2px solid #e2e8f0;
-    border-radius: 12px;
+    border-radius: 10px;
     background: #ffffff;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -589,14 +648,14 @@
   }
 
   .scheme-preview {
-    width: 34px;
-    height: 34px;
-    border-radius: 9px;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
     line-height: 1;
   }
@@ -604,7 +663,7 @@
   .scheme-name {
     min-width: 0;
     color: #475569;
-    font-size: 11px;
+    font-size: 10px;
     line-height: 1.2;
     overflow-wrap: anywhere;
   }
@@ -616,7 +675,7 @@
 
   .icon-row {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     align-items: center;
   }
 
@@ -638,8 +697,8 @@
   }
 
   .icon-preview img {
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
     border-radius: 8px;
     object-fit: cover;
     border: 1px solid #e2e8f0;
@@ -651,17 +710,24 @@
   }
 
   .modal-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
-    margin-top: 4px;
+    gap: 8px;
+    margin: 0 -16px;
+    padding: 8px 16px 10px;
+    border-top: 1px solid #e2e8f0;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(10px);
   }
 
   .primary-button,
   .ghost-button,
   .danger-button {
     border-radius: 12px;
-    padding: 10px 16px;
+    padding: 8px 14px;
     font-size: 14px;
     cursor: pointer;
     transition: 0.18s ease;
@@ -695,6 +761,15 @@
   }
 
   @media (max-width: 500px) {
+    .modal-backdrop {
+      padding: 10px;
+    }
+
+    .modal-card {
+      max-height: calc(100vh - 20px);
+      max-height: calc(100dvh - 20px);
+    }
+
     .icon-candidates {
       grid-template-columns: repeat(2, 1fr);
     }
@@ -707,6 +782,18 @@
       align-items: flex-start;
       flex-direction: column;
       gap: 4px;
+    }
+
+    .icon-row {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .modal-actions {
+      margin-right: -16px;
+      margin-left: -16px;
+      padding-right: 14px;
+      padding-left: 14px;
     }
   }
 </style>
