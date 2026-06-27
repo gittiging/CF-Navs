@@ -22,6 +22,7 @@
 - ✅ 卡片背景颜色与透明度后台可调
 - ✅ 主题切换（亮色/暗色/自动）
 - ✅ 公开模式（可选）
+- ✅ PWA app shell（生产环境 Service Worker）
 
 ### 管理功能
 - ✅ 单管理员登录系统
@@ -30,6 +31,7 @@
 - ✅ 前台右键编辑书签，编辑弹窗内可二次确认删除
 - ✅ 拖拽排序（分类和书签）
 - ✅ 四种方式获取图标（自动解析 / Favicon.im / 完整标题文字图标 / Google）
+- ✅ 文字图标读取完整标题，并支持新增/编辑书签时选择 logo.surf 风格配色
 - ✅ 图标本地缓存回退
 - ✅ 书签列表搜索筛选
 - ✅ 站点设置管理
@@ -54,7 +56,8 @@ src/
 ├── lib/
 │   ├── api.ts          # API 客户端
 │   ├── stores.ts       # Svelte stores
-│   └── icons.ts        # 图标获取辅助（四种方式）
+│   ├── icons.ts        # 图标获取辅助（四种方式 + 文字图标配色）
+│   └── importData.ts   # CF-Navs / SunPanel 导入转换
 └── App.svelte          # 主应用
 ```
 
@@ -187,7 +190,7 @@ SESSION_TTL = "604800"             # 会话有效期（7天）
 
 ## 🔒 安全特性
 
-- 密码 bcrypt 加密存储
+- 密码使用 WebCrypto PBKDF2 哈希存储
 - Session token 随机生成
 - CSRF 防护（SameSite cookie）
 - XSS 防护（内容转义）
@@ -232,6 +235,7 @@ SESSION_TTL = "604800"             # 会话有效期（7天）
 docs/
 ├── QUICKSTART.md       # 快速开始
 ├── DEPLOYMENT.md       # 部署指南
+├── API_CONTRACT.md     # API 契约
 ├── PROJECT_OVERVIEW.md # 项目概览
 └── SUNPANEL_IMPORT.md  # Sun-Panel 数据导入说明
 ```
@@ -245,7 +249,6 @@ docs/
 - [ ] 错误日志收集
 
 ### 中期计划
-- [ ] PWA 支持
 - [ ] 浏览器插件
 - [ ] API 文档自动生成
 - [ ] 多语言支持（i18n）

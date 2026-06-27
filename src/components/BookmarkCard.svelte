@@ -18,27 +18,41 @@
   let contextMenuOpen = false
   let contextMenuX = 0
   let contextMenuY = 0
+  let iconStateKey = ''
 
   $: openInNewTab = bookmark.open_method === 1
   $: iconText = bookmark.title.trim().slice(0, 1) || '书'
   $: infoIconSize = Math.max(0, Math.min(height > 0 ? height : 70, width))
   $: compactIconSize = Math.max(0, iconSize)
   $: tooltipText = bookmark.description ? `${bookmark.title}\n${bookmark.description}` : bookmark.title
+  $: nextIconStateKey = `${bookmark.id}:${bookmark.icon_source ?? ''}:${bookmark.icon ?? ''}:${bookmark.title}:${bookmark.url}`
+  $: if (nextIconStateKey !== iconStateKey) {
+    iconStateKey = nextIconStateKey
+    useFallbackIcon = false
+    fallbackFailed = false
+  }
 
   // 图标来源：有 URL 时优先加载；失败时尝试缓存；再失败用首字母
   $: iconUrl = (() => {
-    if (bookmark.icon_source === 'logo_surf') return logoSurfIcon(bookmark.title, bookmark.url)
+    if (bookmark.icon_source === 'logo_surf') return bookmark.icon || logoSurfIcon(bookmark.title, bookmark.url)
     if (!bookmark.icon) return ''
     if (useFallbackIcon) return `/api/icon/${bookmark.id}`
     return bookmark.icon
   })()
+  $: hasRenderableIcon = Boolean(iconUrl) && !fallbackFailed
 
   function handleIconError() {
+    if (bookmark.icon_source === 'logo_surf' || !bookmark.icon || !/^https?:\/\//i.test(bookmark.icon)) {
+      fallbackFailed = true
+      useFallbackIcon = false
+      return
+    }
+
     if (useFallbackIcon) {
       // 缓存也失败了 → 显示首字母
       fallbackFailed = true
       useFallbackIcon = false
-    } else if (bookmark.icon) {
+    } else {
       // 外部图标失败 → 尝试本地缓存
       useFallbackIcon = true
     }
@@ -89,7 +103,7 @@
     on:contextmenu={handleContextMenu}
   >
     <div class="bookmark-icon" style="width: {infoIconSize}px; height: {infoIconSize}px; max-width: 100%;">
-      {#if bookmark.icon && !fallbackFailed}
+      {#if hasRenderableIcon}
         <img src={iconUrl} alt={bookmark.title} loading="lazy" on:error={handleIconError} on:load={handleIconLoad} />
       {:else}
         <span class="icon-text">{iconText}</span>
@@ -117,7 +131,7 @@
     on:contextmenu={handleContextMenu}
   >
     <div class="bookmark-icon">
-      {#if bookmark.icon && !fallbackFailed}
+      {#if hasRenderableIcon}
         <img src={iconUrl} alt={bookmark.title} loading="lazy" on:error={handleIconError} on:load={handleIconLoad} />
       {:else}
         <span class="icon-text">{iconText}</span>

@@ -17,9 +17,11 @@
 - 📦 **卡片样式**：支持详情风格和极简风格两种展示
 - 🎨 **自定义背景**：支持纯色、渐变、图片背景
 - 🔖 **四源图标获取**：自动解析 / Favicon.im / 完整标题文字图标 / Google 四种方式
+- 🎛️ **文字图标配色**：新增/编辑书签时可选择 logo.surf 风格的默认配色方案
 - 💾 **图标本地缓存**：后台自动缓存图标，前台逐层降级保障显示
 - 🎨 **卡片背景配置**：卡片背景颜色和透明度后台可调
 - ✏️ **前台快捷编辑**：管理员登录后可在首页右键编辑书签，弹窗内可保存或二次确认删除
+- 📲 **PWA 支持**：生产构建注册 Service Worker，提供基础离线 app shell
 
 ## 🛠️ 技术栈
 
@@ -159,7 +161,6 @@ npm run deploy
 
 - ✅ 创建、编辑、删除分类
 - ✅ 拖拽排序
-- ✅ 折叠/展开控制
 
 ### 书签管理
 
@@ -167,6 +168,7 @@ npm run deploy
 - ✅ 前台右键编辑书签，编辑弹窗支持二次确认删除
 - ✅ 自动获取网站图标
 - ✅ 文字图标读取完整书签标题，默认使用 #000000 背景与 #FFA31A 文字
+- ✅ 新增/编辑书签时可选择 logo.surf 风格默认配色，并保存为本地 SVG data URI
 - ✅ 拖拽排序
 - ✅ 支持新窗口打开设置
 
@@ -188,7 +190,6 @@ npm run deploy
 
 - ✅ 导出备份（JSON）
 - ✅ 导入恢复
-- ✅ 一键清空数据
 
 ## 🎨 自定义样式
 
@@ -202,6 +203,10 @@ npm run deploy
 ### 首页标题
 
 首页标题显示在搜索栏上方，可在后台配置文案、颜色和文字大小。管理员入口和退出按钮作为右上角悬浮图标单独显示。
+
+### 文字图标
+
+选择"文字图标"时，系统会用完整书签标题生成本地 SVG 图标。默认配色是黑色背景 `#000000` 与橙色文字 `#FFA31A`，新增/编辑书签弹窗中也可以选择内置的 logo.surf 风格配色。所选配色会随书签图标一起保存，首页渲染时优先使用保存的 SVG。
 
 ### 背景设置
 
@@ -279,7 +284,7 @@ npm run deploy           # 构建并部署到 Cloudflare
 - `GET /api/settings` - 获取设置
 - `PUT /api/settings` - 更新设置
 
-详细 API 文档请查看 [docs/development/API_CONTRACT.md](docs/development/API_CONTRACT.md)
+详细 API 文档请查看 [docs/API_CONTRACT.md](docs/API_CONTRACT.md)。
 
 ## 🔒 安全建议
 
@@ -313,6 +318,7 @@ npm run deploy           # 构建并部署到 Cloudflare
 - [快速开始](docs/QUICKSTART.md) - 快速部署和首次使用
 - [部署检查清单](docs/DEPLOYMENT.md) - Cloudflare Workers 部署流程
 - [项目概览](docs/PROJECT_OVERVIEW.md) - 代码结构、功能和架构
+- [API 契约](docs/API_CONTRACT.md) - 前后端接口约定
 - [Sun-Panel 导入说明](docs/SUNPANEL_IMPORT.md) - Sun-Panel 数据迁移指南
 
 ## 🙏 致谢

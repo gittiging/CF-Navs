@@ -2,9 +2,9 @@
 
 /**
  * Sun-Panel 数据转换脚本
- * 将 Sun-Panel 导出的 JSON 转换为 CF-Navs 可导入的格式
+ * 将 Sun-Panel 导出的 JSON 转换为 CF-Navs 可导入的格式。
  *
- * 用法: node scripts/convert-sunpanel.js <sun-panel-export.json> <output.json>
+ * 用法: node scripts/convert-sunpanel.cjs <sun-panel-export.json> <output.json>
  */
 
 const fs = require('fs');
@@ -13,8 +13,8 @@ const path = require('path');
 // 获取命令行参数
 const args = process.argv.slice(2);
 if (args.length < 2) {
-  console.error('用法: node scripts/convert-sunpanel.js <sun-panel-export.json> <output.json>');
-  console.error('示例: node scripts/convert-sunpanel.js sun-panel-data.json cf-navs-import.json');
+  console.error('用法: node scripts/convert-sunpanel.cjs <sun-panel-export.json> <output.json>');
+  console.error('示例: node scripts/convert-sunpanel.cjs sun-panel-data.json cf-navs-import.json');
   process.exit(1);
 }
 
@@ -43,6 +43,7 @@ try {
 function convertSunPanelToCFNavs(sunPanelData) {
   const categories = [];
   const bookmarks = [];
+  const now = Date.now();
 
   // 遍历 Sun-Panel 的 icons 数组（分类）
   if (!sunPanelData.icons || !Array.isArray(sunPanelData.icons)) {
@@ -55,8 +56,9 @@ function convertSunPanelToCFNavs(sunPanelData) {
     const cfCategory = {
       id: categoryIndex + 1,
       title: category.title || '未命名分类',
-      order_index: category.sort !== undefined ? category.sort : categoryIndex,
-      collapsed: false
+      icon: null,
+      sort: Number.isFinite(category.sort) ? category.sort : categoryIndex,
+      created_at: now
     };
     categories.push(cfCategory);
 
@@ -96,17 +98,19 @@ function convertSunPanelToCFNavs(sunPanelData) {
         }
 
         // 转换 openMethod: Sun-Panel 的 2 表示新窗口，1 表示当前窗口
-        const openMethod = item.openMethod === 2 ? 1 : 0;
+        const openMethod = item.openMethod === 1 ? 2 : 1;
 
         const cfBookmark = {
           id: itemIndex + 1 + (categoryIndex * 1000), // 简单的 ID 生成策略
           category_id: cfCategory.id,
           title: item.title || '未命名书签',
           url: item.url || '',
-          icon: icon,
-          description: item.description || '',
+          icon: icon || null,
+          icon_source: null,
+          description: item.description || null,
           open_method: openMethod,
-          order_index: item.sort !== undefined ? item.sort : itemIndex
+          sort: Number.isFinite(item.sort) ? item.sort : itemIndex,
+          created_at: now
         };
 
         bookmarks.push(cfBookmark);
@@ -116,7 +120,7 @@ function convertSunPanelToCFNavs(sunPanelData) {
 
   return {
     version: 1,
-    exportTime: new Date().toISOString(),
+    exported_at: now,
     source: 'Sun-Panel',
     categories,
     bookmarks

@@ -1,5 +1,12 @@
 <script lang="ts">
-  import { getIconCandidates, type IconCandidate } from '../lib/icons'
+  import {
+    DEFAULT_LOGO_SURF_SCHEME,
+    LOGO_SURF_COLOR_SCHEMES,
+    getIconCandidates,
+    logoSurfIcon,
+    type IconCandidate,
+    type LogoSurfColorScheme,
+  } from '../lib/icons'
 
   type BookmarkFormValue = {
     id?: string | number
@@ -43,6 +50,7 @@
   let formKey = ''
   let fetchingFavicon = false
   let faviconError = ''
+  let selectedLogoSchemeName = DEFAULT_LOGO_SURF_SCHEME.name
 
   // 当前链接下的图标候选
   let candidates: IconCandidate[] = []
@@ -65,6 +73,7 @@
       description: value?.description ?? '',
       open_method: value?.open_method ?? 'new_tab',
     }
+    selectedLogoSchemeName = findLogoSchemeName(form.icon) ?? DEFAULT_LOGO_SURF_SCHEME.name
     // 编辑模式也重新生成候选
     if (form.url.trim()) {
       candidates = getIconCandidates(form.url.trim(), form.title.trim())
@@ -79,7 +88,68 @@
     candidateError = ''
   }
 
+  $: currentLogoScheme = getLogoSchemeByName(selectedLogoSchemeName)
+  $: logoPreviewText = (form.title.trim() || 'NAV').slice(0, 4)
+  $: canShowLogoSchemes = Boolean(
+    form.url.trim() &&
+      (form.icon_source === 'logo_surf' || candidates.some((candidate) => candidate.source === 'logo_surf')),
+  )
+  $: if (form.icon_source === 'logo_surf' && form.url.trim()) {
+    const nextLogoIcon = logoSurfIcon(form.title.trim(), form.url.trim(), currentLogoScheme)
+    if (form.icon !== nextLogoIcon) {
+      form.icon = nextLogoIcon
+    }
+  }
+
+  function getLogoSchemeByName(name: string): LogoSurfColorScheme {
+    return LOGO_SURF_COLOR_SCHEMES.find((scheme) => scheme.name === name) ?? DEFAULT_LOGO_SURF_SCHEME
+  }
+
+  function findLogoSchemeName(icon: string): string | null {
+    if (!icon.startsWith('data:image/svg+xml')) return null
+
+    let decoded = icon
+    try {
+      decoded = decodeURIComponent(icon)
+    } catch {
+      decoded = icon
+    }
+
+    const normalized = decoded.toLowerCase()
+    const match = LOGO_SURF_COLOR_SCHEMES.find((scheme) => {
+      return normalized.includes(scheme.bgColor.toLowerCase()) && normalized.includes(scheme.textColor.toLowerCase())
+    })
+
+    return match?.name ?? null
+  }
+
+  function selectLogoColorScheme(scheme: LogoSurfColorScheme) {
+    if (!form.url.trim()) return
+    selectedLogoSchemeName = scheme.name
+    form.icon = logoSurfIcon(form.title.trim(), form.url.trim(), scheme)
+    form.icon_source = 'logo_surf'
+    candidateError = ''
+    faviconError = ''
+  }
+
+  function isCandidateSelected(candidate: IconCandidate): boolean {
+    if (candidate.source === 'logo_surf') {
+      return form.icon_source === 'logo_surf'
+    }
+
+    return form.icon === candidate.url && form.icon_source === candidate.source
+  }
+
+  function canPreviewIcon(icon: string): boolean {
+    return /^https?:\/\//i.test(icon) || /^data:image\//i.test(icon)
+  }
+
   function selectCandidate(candidate: IconCandidate) {
+    if (candidate.source === 'logo_surf') {
+      selectLogoColorScheme(DEFAULT_LOGO_SURF_SCHEME)
+      return
+    }
+
     form.icon = candidate.url
     form.icon_source = candidate.source
     candidateError = ''
@@ -193,7 +263,7 @@
                 <button
                   type="button"
                   class="candidate-card"
-                  class:selected={form.icon === candidate.url}
+                  class:selected={isCandidateSelected(candidate)}
                   on:click={() => selectCandidate(candidate)}
                   title={candidate.label}
                 >
@@ -212,6 +282,31 @@
             <p class="hint-text">填写链接地址后将自动生成图标选项</p>
           {/if}
         </div>
+
+        {#if canShowLogoSchemes}
+          <div class="logo-scheme-section">
+            <div class="scheme-header">
+              <span class="field-label">文字图标配色</span>
+              <span class="scheme-current">{currentLogoScheme.bgColor} / {currentLogoScheme.textColor}</span>
+            </div>
+            <div class="logo-scheme-grid">
+              {#each LOGO_SURF_COLOR_SCHEMES as scheme}
+                <button
+                  type="button"
+                  class="scheme-button"
+                  class:selected={selectedLogoSchemeName === scheme.name && form.icon_source === 'logo_surf'}
+                  on:click={() => selectLogoColorScheme(scheme)}
+                  title={`${scheme.name}: ${scheme.bgColor} / ${scheme.textColor}`}
+                >
+                  <span class="scheme-preview" style="background: {scheme.bgColor}; color: {scheme.textColor};">
+                    {logoPreviewText}
+                  </span>
+                  <span class="scheme-name">{scheme.name}</span>
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
 
         <label>
           <span>自定义图标 / 手动输入</span>
@@ -243,7 +338,7 @@
               </button>
             {/if}
           </div>
-          {#if form.icon && /^https?:\/\//i.test(form.icon)}
+          {#if form.icon && canPreviewIcon(form.icon)}
             <span class="icon-preview">
               <img src={form.icon} alt="图标预览" />
               <small>图标预览</small>
@@ -444,6 +539,81 @@
     font-weight: 600;
   }
 
+  .logo-scheme-section {
+    display: grid;
+    gap: 8px;
+  }
+
+  .scheme-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .scheme-current {
+    color: #64748b;
+    font-size: 12px;
+  }
+
+  .logo-scheme-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .scheme-button {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    min-height: 50px;
+    padding: 8px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
+  }
+
+  .scheme-button:hover {
+    border-color: #93c5fd;
+    background: #f8fbff;
+  }
+
+  .scheme-button.selected {
+    border-color: #2563eb;
+    background: #eff6ff;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  }
+
+  .scheme-preview {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .scheme-name {
+    min-width: 0;
+    color: #475569;
+    font-size: 11px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  .scheme-button.selected .scheme-name {
+    color: #1e40af;
+    font-weight: 600;
+  }
+
   .icon-row {
     display: flex;
     gap: 8px;
@@ -527,6 +697,16 @@
   @media (max-width: 500px) {
     .icon-candidates {
       grid-template-columns: repeat(2, 1fr);
+    }
+
+    .logo-scheme-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .scheme-header {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 4px;
     }
   }
 </style>

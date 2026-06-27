@@ -8,9 +8,23 @@
 2. 确保 CF-Navs 已部署并可以访问
 3. 准备好管理员账号
 
-## 🔄 数据转换
+## 🔄 导入方式
 
-### 方法一：使用转换脚本（推荐）
+### 方法一：后台直接导入（推荐）
+
+当前后台已经内置 Sun-Panel JSON 转换逻辑，不需要先运行转换脚本。
+
+1. 登录 CF-Navs 后台
+2. 进入 **数据备份**
+3. 在"导入来源"中选择 **SunPanel 导出**
+4. 点击 **导入备份**，选择 Sun-Panel 导出的 JSON 文件
+5. 确认覆盖导入
+
+导入会覆盖现有分类和书签；管理员账号与密码不受影响。建议导入前先导出一份 CF-Navs 备份。
+
+### 方法二：使用转换脚本（可选）
+
+如果你希望先生成一份可检查的中间 JSON，可以使用脚本转换：
 
 ```bash
 # 转换 Sun-Panel 导出的 JSON 文件
@@ -25,18 +39,20 @@ node scripts/convert-sunpanel.cjs SunPanel-Data.json cf-navs-import.json
 - 书签数量
 - 输出文件路径
 
+注意：后台内置导入是当前推荐路径；脚本主要用于离线检查或手动处理。
+
 ### 数据映射说明
 
 | Sun-Panel 字段 | CF-Navs 字段 | 说明 |
 |---------------|-------------|------|
 | icons[].title | categories.title | 分类名称 |
-| icons[].sort | categories.order_index | 分类排序 |
+| icons[].sort | categories.sort | 分类排序 |
 | children[].title | bookmarks.title | 书签标题 |
 | children[].url | bookmarks.url | 书签URL |
 | children[].description | bookmarks.description | 书签描述 |
 | children[].icon.src | bookmarks.icon | 图标地址 |
 | children[].openMethod | bookmarks.open_method | 打开方式 |
-| children[].sort | bookmarks.order_index | 书签排序 |
+| children[].sort | bookmarks.sort | 书签排序 |
 
 ### 特殊处理
 
@@ -47,7 +63,7 @@ node scripts/convert-sunpanel.cjs SunPanel-Data.json cf-navs-import.json
 
 2. **打开方式**：
    - Sun-Panel 的 `2`（新窗口）→ CF-Navs 的 `1`
-   - Sun-Panel 的 `1`（当前窗口）→ CF-Navs 的 `0`
+   - Sun-Panel 的 `1`（当前窗口）→ CF-Navs 的 `2`
 
 ## 📥 导入到 CF-Navs
 
@@ -59,19 +75,19 @@ node scripts/convert-sunpanel.cjs SunPanel-Data.json cf-navs-import.json
 
 ### 步骤 2：进入数据管理
 
-1. 在侧边栏点击 **数据管理**
-2. 找到"导入备份"部分
+1. 在侧边栏点击 **数据备份**
+2. 找到"导入 / 导出"区域
 
 ### 步骤 3：导入数据
 
-1. 点击 **选择文件** 按钮
-2. 选择转换后的 `cf-navs-import.json` 文件
-3. 点击 **导入备份** 按钮
+1. 在"导入来源"中选择 **SunPanel 导出**
+2. 点击 **导入备份** 按钮
+3. 选择 Sun-Panel 导出的 JSON 文件，或选择转换后的 `cf-navs-import.json`
 
 ### 步骤 4：确认导入
 
 - 系统会显示导入的分类和书签数量
-- 如果已有数据，会提示是否覆盖或合并
+- 如果已有数据，会提示覆盖现有分类和书签
 - 确认后点击 **确定**
 
 ### 步骤 5：验证数据
@@ -87,14 +103,15 @@ node scripts/convert-sunpanel.cjs SunPanel-Data.json cf-navs-import.json
 部分书签的图标可能无法自动获取，你可以：
 
 1. 编辑该书签
-2. 点击"获取图标"按钮自动获取
-3. 或手动输入图标 URL
+2. 在图标候选中选择自动解析、Favicon.im、文字图标或 Google
+3. 选择文字图标时可切换内置配色方案
+4. 或手动输入图标 URL / 表情
 
 ### 2. 调整分类排序
 
-1. 在后台"书签管理"中
+1. 在后台"分类管理"中
 2. 使用拖拽功能调整分类顺序
-3. 保存后立即生效
+3. 拖拽结束后自动保存
 
 ### 3. 调整书签排序
 
