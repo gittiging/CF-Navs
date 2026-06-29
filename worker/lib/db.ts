@@ -219,6 +219,22 @@ export async function getBookmark(db: D1Database, id: number): Promise<Bookmark 
   ))
 }
 
+export interface BookmarkIconData {
+  title: string
+  url: string
+  icon: string | null
+  icon_blob: string | null
+}
+
+export async function getBookmarkIconData(db: D1Database, id: number): Promise<BookmarkIconData | null> {
+  return await withSchemaRetry(db, async () => (
+    await db
+      .prepare('SELECT title, url, icon, icon_blob FROM bookmarks WHERE id = ?')
+      .bind(id)
+      .first<BookmarkIconData>()
+  ))
+}
+
 export async function createBookmark(db: D1Database, req: BookmarkUpsertReq): Promise<Bookmark> {
   const now = Date.now()
   const open_method: 1 | 2 | 3 = req.open_method === 2 ? 2 : req.open_method === 3 ? 3 : 1
@@ -526,15 +542,7 @@ export async function ensureSchema(db: D1Database, force = false): Promise<void>
   if (stmts.length > 0) await db.batch(stmts)
 }
 
-// ========== icon_blob 存取 ==========
-
-export async function getIconBlob(db: D1Database, id: number): Promise<string | null> {
-  const row = await db
-    .prepare("SELECT icon_blob FROM bookmarks WHERE id = ?")
-    .bind(id)
-    .first<{ icon_blob: string | null }>()
-  return row?.icon_blob ?? null
-}
+// ========== icon_blob 写入 ==========
 
 export async function setIconBlob(db: D1Database, id: number, blob: string | null): Promise<void> {
   await db

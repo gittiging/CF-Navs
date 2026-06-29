@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
-import { getBookmark, getCategory, getIconBlob, setIconBlob } from '../lib/db'
+import { getBookmarkIconData, getCategory, setIconBlob } from '../lib/db'
 import type { HonoEnv } from '../types'
 
 type AppContext = Context<HonoEnv>
@@ -168,15 +168,14 @@ iconRoutes.get('/icon/:id', async (c) => {
       return cached
     }
 
-    const blob = await getIconBlob(c.env.DB, id)
-    if (blob) {
-      const response = dataUriToResponse(blob)
+    const bookmark = await getBookmarkIconData(c.env.DB, id)
+    if (bookmark?.icon_blob) {
+      const response = dataUriToResponse(bookmark.icon_blob)
       if (!response) return errorResponse('invalid blob', 500)
       cacheResponse(c, c.req.raw, response)
       return response
     }
 
-    const bookmark = await getBookmark(c.env.DB, id)
     if (!bookmark?.icon) {
       return errorResponse('icon not found', 404)
     }
