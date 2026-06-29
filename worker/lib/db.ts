@@ -130,15 +130,20 @@ export async function getCategory(db: D1Database, id: number): Promise<Category 
 
 export async function createCategory(db: D1Database, req: CategoryUpsertReq): Promise<Category> {
   const now = Date.now()
-  // 新分类排到末尾
-  const maxRow = await db.prepare('SELECT COALESCE(MAX(sort), -1) AS m FROM categories').first<{ m: number }>()
-  const sort = (maxRow?.m ?? -1) + 1
-  const res = await db
-    .prepare('INSERT INTO categories (title, icon, sort, created_at) VALUES (?, ?, ?, ?)')
-    .bind(req.title, req.icon ?? null, sort, now)
-    .run()
-  const id = Number(res.meta.last_row_id)
-  return { id, title: req.title, icon: req.icon ?? null, sort, created_at: now }
+  const category = await db
+    .prepare(
+      `INSERT INTO categories (title, icon, sort, created_at)
+       SELECT ?, ?, COALESCE(MAX(sort), -1) + 1, ? FROM categories
+       RETURNING id, title, icon, sort, created_at`,
+    )
+    .bind(req.title, req.icon ?? null, now)
+    .first<Category>()
+
+  if (!category) {
+    throw new Error('failed to create category')
+  }
+
+  return category
 }
 
 export async function updateCategory(
