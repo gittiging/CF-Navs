@@ -1,12 +1,35 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
-import { ErrCode, type SettingsUpdateReq } from '../../shared/types'
+import { ErrCode, type Settings, type SettingsUpdateReq } from '../../shared/types'
 import { invalidatePublicDataCache, invalidateSiteConfigCache } from '../lib/cache'
-import { getSettings, updateSettings } from '../lib/db'
+import { getSettings, settingsFromPatchDefaults, updateSettings, writeSettingsPatch } from '../lib/db'
 import { fail, ok } from '../lib/response'
 import type { HonoEnv } from '../types'
 
 type AppContext = Context<HonoEnv>
+
+const COMPLETE_PUBLIC_SETTINGS_KEYS: Array<keyof Settings> = [
+  'site_title',
+  'site_title_color',
+  'site_title_font_size',
+  'public_mode',
+  'theme',
+  'image_host_url',
+  'background',
+  'search_engine',
+  'card_size',
+  'card_style',
+  'card_icon_size',
+  'card_show_description',
+  'card_background_color',
+  'card_background_opacity',
+  'card_icon_show_title',
+  'card_text_color',
+  'search_box_show',
+  'search_engine_selector_show',
+  'content_layout',
+  'footer_html',
+]
 
 function badRequest(c: AppContext, msg: string) {
   return c.json(fail(ErrCode.BAD_REQUEST, msg))
@@ -18,6 +41,10 @@ async function readJson<T>(c: AppContext): Promise<T | null> {
   } catch {
     return null
   }
+}
+
+function isCompletePublicSettingsPatch(body: SettingsUpdateReq): body is Partial<Settings> {
+  return COMPLETE_PUBLIC_SETTINGS_KEYS.every((key) => body[key] !== undefined)
 }
 
 export const settingsRoutes = new Hono<HonoEnv>()
@@ -131,7 +158,14 @@ settingsRoutes.put('/', async (c) => {
   }
 
   try {
-    const settings = await updateSettings(c.env.DB, body)
+    const hasCompletePublicSettings = isCompletePublicSettingsPatch(body)
+    let settings: Settings
+    if (hasCompletePublicSettings) {
+      await writeSettingsPatch(c.env.DB, body)
+      settings = settingsFromPatchDefaults(body)
+    } else {
+      settings = await updateSettings(c.env.DB, body)
+    }
     invalidatePublicDataCache(c, c.req.url)
     invalidateSiteConfigCache(c, c.req.url)
     return c.json(ok(settings))

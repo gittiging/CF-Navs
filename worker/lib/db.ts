@@ -370,6 +370,16 @@ function settingsFromRows(rows: Array<{ key: string; value: string | null }>): S
   return settingsFromRawMap(readRawSettingsRows(rows))
 }
 
+export function settingsFromPatchDefaults(patch: Partial<Settings>): Settings {
+  const raw = new Map<string, unknown>()
+  for (const key of SETTINGS_KEYS) {
+    if (patch[key] !== undefined) {
+      raw.set(key, patch[key])
+    }
+  }
+  return settingsFromRawMap(raw)
+}
+
 async function readRawSettings(db: D1Database): Promise<Map<string, unknown>> {
   const { results } = await db.prepare(SETTINGS_LIST_SQL).all<{ key: string; value: string | null }>()
   return readRawSettingsRows(results ?? [])
@@ -467,6 +477,22 @@ export async function updateSettings(
 }
 
 // ========== 数据导入（覆盖式：清空后重建，保留原始 id 以维持关联） ==========
+
+export async function writeSettingsPatch(db: D1Database, patch: Partial<Settings>): Promise<void> {
+  const stmts: D1PreparedStatement[] = []
+  for (const key of SETTINGS_KEYS) {
+    if (key in patch && patch[key] !== undefined) {
+      stmts.push(
+        db
+          .prepare(
+            'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+          )
+          .bind(key, JSON.stringify(patch[key])),
+      )
+    }
+  }
+  if (stmts.length > 0) await db.batch(stmts)
+}
 
 export async function importData(
   db: D1Database,
