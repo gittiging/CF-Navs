@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { LoginReq, LoginResp } from '../../shared/types'
 import { ErrCode } from '../../shared/types'
-import { authRequired, extractBearerToken, getSessionKey } from '../middleware/auth'
+import { authRequired, cacheValidatedSession, clearCachedSession, extractBearerToken, getSessionKey } from '../middleware/auth'
 import { clearLoginFailures, getClientIp, loginRateLimit, recordLoginFailure } from '../middleware/rateLimit'
 import { ensureAdminBootstrap, type AdminCredentials } from '../lib/bootstrap'
 import { generateToken, verifyPassword } from '../lib/crypto'
@@ -54,6 +54,7 @@ authRoutes.post('/login', loginRateLimit, async (c) => {
     c.env.SESSION.put(getSessionKey(token), JSON.stringify(session), { expirationTtl: ttlSeconds }),
     clearLoginFailures(c.env, ip),
   ])
+  cacheValidatedSession(token, session)
 
   const data: LoginResp = { token, expires_at, username: credentials.username }
   return c.json(ok(data))
@@ -62,6 +63,7 @@ authRoutes.post('/login', loginRateLimit, async (c) => {
 authRoutes.post('/logout', authRequired, async (c) => {
   const token = extractBearerToken(c.req.header('Authorization'))
   if (token) {
+    clearCachedSession(token)
     await c.env.SESSION.delete(getSessionKey(token))
   }
   return c.json(ok(null))
