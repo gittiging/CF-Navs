@@ -17,6 +17,7 @@ const MAX_ICON_SIZE = 256_000
 const ICON_ACCEPT = 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.1'
 const SUCCESS_CACHE = 'public, max-age=604800, s-maxage=2592000, immutable'
 const FAILURE_CACHE = 'no-store'
+const FALLBACK_CACHE = 'public, max-age=300, s-maxage=300'
 
 function errorResponse(message: string, status: number): Response {
   return new Response(message, {
@@ -52,7 +53,7 @@ function fallbackIconResponse(title: string, url: string): Response {
     status: 200,
     headers: {
       'Content-Type': 'image/svg+xml; charset=utf-8',
-      'Cache-Control': FAILURE_CACHE,
+      'Cache-Control': FALLBACK_CACHE,
       'X-Icon-Fallback': '1',
     },
   })

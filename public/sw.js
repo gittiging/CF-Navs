@@ -8,14 +8,55 @@
 //  - 导航请求       网络优先，离线回退到缓存的 index.html
 //  - /assets/*等    缓存优先（构建产物带 hash，安全长期缓存）
 
-const CACHE = 'cf-navs-v8'
+const CACHE = 'cf-navs-v9'
 const APP_SHELL = ['/index.html', '/manifest.webmanifest', '/icon.svg']
+const ICON_FALLBACK_TTL_MS = 5 * 60 * 1000
+const ICON_FALLBACK_CACHED_AT = 'X-CF-Navs-Fallback-Cached-At'
 
 function cacheResponse(request, response) {
   if (!response.ok) return
 
   const copy = response.clone()
   caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => undefined)
+}
+
+function isIconFallback(response) {
+  return response.headers.get('X-Icon-Fallback') === '1'
+}
+
+function fallbackResponseForCache(response) {
+  const headers = new Headers(response.headers)
+  headers.set(ICON_FALLBACK_CACHED_AT, String(Date.now()))
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  })
+}
+
+async function matchCachedIcon(request) {
+  const cached = await caches.match(request)
+  if (!cached) return null
+
+  if (!isIconFallback(cached)) {
+    return cached
+  }
+
+  const cachedAt = Number(cached.headers.get(ICON_FALLBACK_CACHED_AT) || '0')
+  if (cachedAt > 0 && Date.now() - cachedAt <= ICON_FALLBACK_TTL_MS) {
+    return cached
+  }
+
+  caches.open(CACHE).then((cache) => cache.delete(request)).catch(() => undefined)
+  return null
+}
+
+function cacheIconResponse(request, response) {
+  if (!response.ok) return
+
+  const copy = response.clone()
+  const cached = isIconFallback(copy) ? fallbackResponseForCache(copy) : copy
+  caches.open(CACHE).then((cache) => cache.put(request, cached)).catch(() => undefined)
 }
 
 self.addEventListener('install', (event) => {
@@ -73,14 +114,11 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/api/iconify/')
   if (isIconProxy) {
     event.respondWith(
-      caches.match(request).then(
+      matchCachedIcon(request).then(
         (cached) =>
           cached ||
           fetch(request).then((response) => {
-            if (response.ok && response.headers.get('X-Icon-Fallback') !== '1') {
-              const copy = response.clone()
-              caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => undefined)
-            }
+            cacheIconResponse(request, response)
             return response
           }),
       ),

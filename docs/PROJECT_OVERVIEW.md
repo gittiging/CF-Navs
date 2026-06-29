@@ -205,7 +205,7 @@ SESSION_TTL = "604800"             # 会话有效期（7天）
 - 分类和书签新增用单条 `INSERT ... SELECT ... RETURNING` 合并末尾排序计算和返回值，书签新增还会在同一语句中判断分类是否存在；分类和书签更新使用 `UPDATE ... RETURNING` 直接返回更新后的完整行，避免更新前额外读取旧记录；书签更新在 SQL 内只于图标变化时清空 `icon_blob`
 - 分类删除使用删除语句 `changes` 判断是否存在，避免删除前额外读取分类
 - 公开聚合、后台聚合、书签列表和图标详情等读取路径跳过预检查式 schema 迁移，仅在旧库缺列错误时迁移并重试一次
-- `/api/icon/:id`、`/api/category-icon/:id` 与 `/api/iconify/:set/:name.svg` 统一代理外站图标，普通书签图标 cache miss 时一次 D1 查询同时读取地址和 `icon_blob`，外站抓取成功后直接返回图片字节；Iconify 图标和 icon-sets 页面链接不写 `icon_blob`，通过稳定 `/api/iconify/*` 代理共享 edge cache 与浏览器本地缓存；失败、图标缺失或缓存损坏时返回 `no-store` 临时 SVG fallback，不缓存第三方失败结果，也避免前台 `<img>` 404
+- `/api/icon/:id`、`/api/category-icon/:id` 与 `/api/iconify/:set/:name.svg` 统一代理外站图标，普通书签图标 cache miss 时一次 D1 查询同时读取地址和 `icon_blob`，外站抓取成功后直接返回图片字节；Iconify 图标和 icon-sets 页面链接不写 `icon_blob`，通过稳定 `/api/iconify/*` 代理共享 edge cache 与浏览器本地缓存；失败、图标缺失或缓存损坏时返回短 TTL 临时 SVG fallback，避免前台 `<img>` 404，并防止页面刷新、滚动或搜索筛选后反复触发同一个失败外站请求
 - 静态资源 CDN
 
 ### 网络

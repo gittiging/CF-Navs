@@ -207,7 +207,7 @@ npm run deploy
 
 ### 图标缓存与外站降级
 
-HTTP(S) 书签图标不会在首页直接请求原始外站地址，而是优先通过 `/api/icon/:id` 读取 D1 缓存和 Cloudflare 边缘缓存；代理 cache miss 时会一次性读取书签图标地址、标题和 `icon_blob`，避免每个图标拆成多次 D1 查询。外站图标抓取成功后直接以图片字节返回并写入 edge cache，只有书签图标需要持久化到 D1 时才生成 base64 data URI，减少 Worker CPU 编解码开销。分类图标通过 `/api/category-icon/:id` 代理加载。Favicon.im 或其他第三方图标服务限流、超时、返回错误或书签图标缺失时，后端会返回 `no-store` 的临时 SVG 文字图标，避免前台 `<img>` 产生 404，也不会把失败结果写入浏览器、Service Worker 或 Cloudflare 长期缓存。
+HTTP(S) 书签图标不会在首页直接请求原始外站地址，而是优先通过 `/api/icon/:id` 读取 D1 缓存和 Cloudflare 边缘缓存；代理 cache miss 时会一次性读取书签图标地址、标题和 `icon_blob`，避免每个图标拆成多次 D1 查询。外站图标抓取成功后直接以图片字节返回并写入 edge cache，只有书签图标需要持久化到 D1 时才生成 base64 data URI，减少 Worker CPU 编解码开销。分类图标通过 `/api/category-icon/:id` 代理加载。Favicon.im 或其他第三方图标服务限流、超时、返回错误或书签图标缺失时，后端会返回短 TTL 的临时 SVG 文字图标，避免前台 `<img>` 产生 404；Service Worker 也会短时缓存该 fallback，防止页面滚动、刷新或搜索筛选后反复触发同一个失败外站请求。
 
 Iconify 图标使用 `https://api.iconify.design/{set}/{name}.svg` 作为保存格式，新增/编辑书签时会给出 Iconify 候选，也可以填写 `mdi:home`、`simple-icons:github` 这类图标名，或直接粘贴 `https://icon-sets.iconify.design/mdi/home/` 这类 Iconify 图标库页面链接；候选、手动输入预览和首页/后台已保存的 Iconify 图标都会规范化为 `/api/iconify/:set/:name.svg` 同源代理。Service Worker 会对 `/api/icon/*`、`/api/category-icon/*`、`/api/iconify/*` 和兼容旧版本的 Iconify SVG 使用 cache-first 策略；同一个 Iconify 图标在本地浏览器只缓存一份，后台修改书签、配置或首页搜索筛选导致组件重新渲染时，仍优先读取本地缓存。部署新版后如浏览器仍使用旧逻辑，请强制刷新一次页面，让新版 Service Worker 激活。
 
