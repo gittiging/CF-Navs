@@ -3,6 +3,7 @@
   import { get } from 'svelte/store'
   import {
     ErrCode,
+    type AdminData,
     type Bookmark,
     type BookmarkUpsertReq,
     type Category,
@@ -487,8 +488,7 @@
     }
   }
 
-  async function refreshLoggedInData(): Promise<void> {
-    const data = await api.admin.getData()
+  function applyLoggedInData(data: AdminData): void {
     if (!data.settings) {
       throw new Error('failed to load admin settings')
     }
@@ -500,6 +500,10 @@
       bookmarks: data.bookmarks,
       settings: toPublicSettings(data.settings),
     })
+  }
+
+  async function refreshLoggedInData(): Promise<void> {
+    applyLoggedInData(await api.admin.getData())
   }
 
   async function initializeApp(): Promise<void> {
@@ -902,8 +906,7 @@
       }
 
       const result = await api.data.importAll(prepared.payload)
-
-      await refreshLoggedInData()
+      applyLoggedInData(result.data)
       backupMessage = `导入成功：${result.categories} 个分类、${result.bookmarks} 个书签。`
     } catch (error) {
       backupError = getErrorMessage(error)

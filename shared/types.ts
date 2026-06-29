@@ -227,6 +227,7 @@ export interface ImportReq {
 export interface ImportResp {
   categories: number
   bookmarks: number
+  data: AdminData
 }
 
 // PUT /api/settings  —— 部分更新，传哪些 key 改哪些
