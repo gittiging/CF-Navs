@@ -7,6 +7,11 @@ type AppContext = Context<HonoEnv>
 
 export const iconRoutes = new Hono<HonoEnv>()
 
+interface FetchedIcon {
+  bytes: Uint8Array
+  contentType: string
+}
+
 const CACHE_TIMEOUT_MS = 5000
 const MAX_ICON_SIZE = 256_000
 const ICON_ACCEPT = 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.1'
@@ -69,7 +74,30 @@ function dataUriToResponse(dataUri: string): Response | null {
   })
 }
 
-async function fetchIconAsDataUri(iconUrl: string): Promise<string | null> {
+function iconBytesToResponse(icon: FetchedIcon): Response {
+  const body = new ArrayBuffer(icon.bytes.byteLength)
+  new Uint8Array(body).set(icon.bytes)
+
+  return new Response(body, {
+    status: 200,
+    headers: {
+      'Content-Type': icon.contentType,
+      'Content-Length': String(icon.bytes.byteLength),
+      'Cache-Control': SUCCESS_CACHE,
+    },
+  })
+}
+
+function iconBytesToDataUri(icon: FetchedIcon): string {
+  let binary = ''
+  for (let i = 0; i < icon.bytes.length; i += 1) {
+    binary += String.fromCharCode(icon.bytes[i])
+  }
+
+  return `data:${icon.contentType};base64,${btoa(binary)}`
+}
+
+async function fetchIcon(iconUrl: string): Promise<FetchedIcon | null> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), CACHE_TIMEOUT_MS)
 
@@ -94,13 +122,10 @@ async function fetchIconAsDataUri(iconUrl: string): Promise<string | null> {
       return null
     }
 
-    const bytes = new Uint8Array(buffer)
-    let binary = ''
-    for (let i = 0; i < bytes.length; i += 1) {
-      binary += String.fromCharCode(bytes[i])
+    return {
+      bytes: new Uint8Array(buffer),
+      contentType: contentType.startsWith('image/') ? contentType : 'image/png',
     }
-
-    return `data:${contentType.startsWith('image/') ? contentType : 'image/png'};base64,${btoa(binary)}`
   } catch {
     return null
   } finally {
@@ -141,13 +166,12 @@ iconRoutes.get('/iconify/:prefix/:name', async (c) => {
       return cached
     }
 
-    const blob = await fetchIconAsDataUri(iconUrl)
-    if (!blob) {
+    const icon = await fetchIcon(iconUrl)
+    if (!icon) {
       return fallbackIconResponse(c.req.param('name').replace(/\.svg$/i, ''), iconUrl)
     }
 
-    const response = dataUriToResponse(blob)
-    if (!response) return errorResponse('invalid iconify icon', 500)
+    const response = iconBytesToResponse(icon)
     cacheResponse(c, c.req.raw, response)
     return response
   } catch {
@@ -192,14 +216,13 @@ iconRoutes.get('/icon/:id', async (c) => {
       return errorResponse('unsupported icon', 404)
     }
 
-    const nextBlob = await fetchIconAsDataUri(bookmark.icon)
-    if (!nextBlob) {
+    const fetchedIcon = await fetchIcon(bookmark.icon)
+    if (!fetchedIcon) {
       return fallbackIconResponse(bookmark.title, bookmark.url)
     }
 
-    await setIconBlob(c.env.DB, id, nextBlob)
-    const response = dataUriToResponse(nextBlob)
-    if (!response) return errorResponse('invalid fetched icon', 500)
+    await setIconBlob(c.env.DB, id, iconBytesToDataUri(fetchedIcon))
+    const response = iconBytesToResponse(fetchedIcon)
     cacheResponse(c, c.req.raw, response)
     return response
   } catch {
@@ -236,13 +259,12 @@ iconRoutes.get('/category-icon/:id', async (c) => {
       return fallbackIconResponse(category.title, '')
     }
 
-    const nextBlob = await fetchIconAsDataUri(category.icon)
-    if (!nextBlob) {
+    const fetchedIcon = await fetchIcon(category.icon)
+    if (!fetchedIcon) {
       return fallbackIconResponse(category.title, category.icon)
     }
 
-    const response = dataUriToResponse(nextBlob)
-    if (!response) return errorResponse('invalid fetched icon', 500)
+    const response = iconBytesToResponse(fetchedIcon)
     cacheResponse(c, c.req.raw, response)
     return response
   } catch {
