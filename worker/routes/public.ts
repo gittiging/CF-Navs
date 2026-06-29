@@ -6,7 +6,7 @@ import {
   matchPublicDataCache,
   matchSiteConfigCache,
 } from '../lib/cache'
-import { getSettings, getSiteConfig, listBookmarks, listCategories } from '../lib/db'
+import { getSettings, getSiteConfig, listCategoriesAndBookmarks } from '../lib/db'
 import { fail } from '../lib/response'
 import { ok } from '../lib/response'
 import { extractBearerToken, validateSession } from '../middleware/auth'
@@ -74,16 +74,12 @@ publicRoutes.get('/public/data', async (c) => {
   }
 
   const canUsePublicCache = publicSettings.public_mode && !token
-  const [categories, bookmarks, settings] = await Promise.all([
-    listCategories(c.env.DB),
-    listBookmarks(c.env.DB),
-    Promise.resolve(publicSettings),
-  ])
+  const { categories, bookmarks } = await listCategoriesAndBookmarks(c.env.DB)
 
   const data: PublicData = {
     categories,
     bookmarks,
-    settings: toPublicSettings(settings),
+    settings: toPublicSettings(publicSettings),
   }
 
   const response = c.json(ok(data), 200, {

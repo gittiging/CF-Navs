@@ -190,7 +190,8 @@ SESSION_TTL = "604800"             # 会话有效期（7天）
 - Worker 边缘计算
 - `/api/config` 使用短 TTL Cloudflare edge cache，设置保存和导入后主动失效
 - 匿名 `/api/public/data` 使用 Cloudflare edge cache，命中时不读取 D1；写入接口负责失效缓存
-- `/api/admin/data` 合并后台进入时的数据读取，减少 Worker 请求数和 settings 重复 D1 查询
+- `/api/admin/data` 合并后台进入时的数据读取，分类、书签和 settings 使用 D1 batch 读取
+- `/api/public/data` 缓存未命中时用 D1 batch 合并分类和书签读取
 - `/api/icon/:id`、`/api/category-icon/:id` 与 `/api/iconify/:set/:name.svg` 统一代理外站图标，失败时返回临时 SVG fallback，不缓存第三方失败结果
 - 静态资源 CDN
 

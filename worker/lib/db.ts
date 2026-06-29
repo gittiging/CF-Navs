@@ -1,6 +1,7 @@
 // D1 查询封装：分类/书签 CRUD、批量排序、settings 聚合读取与部分更新
 
 import type {
+  AdminData,
   Bookmark,
   Category,
   BookmarkUpsertReq,
@@ -51,11 +52,16 @@ const DEFAULT_SETTINGS: Settings = {
 // Settings 中属于强类型聚合视图的 key（不含 admin_* 等内部 key）
 const SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[]
 
+const CATEGORY_LIST_SQL = 'SELECT id, title, icon, sort, created_at FROM categories ORDER BY sort ASC, id ASC'
+const BOOKMARK_LIST_SQL =
+  'SELECT id, category_id, title, url, icon, icon_source, icon_background_color, description, open_method, sort, created_at FROM bookmarks ORDER BY sort ASC, id ASC'
+const SETTINGS_LIST_SQL = 'SELECT key, value FROM settings'
+
 // ========== 分类 ==========
 
 export async function listCategories(db: D1Database): Promise<Category[]> {
   const { results } = await db
-    .prepare('SELECT id, title, icon, sort, created_at FROM categories ORDER BY sort ASC, id ASC')
+    .prepare(CATEGORY_LIST_SQL)
     .all<Category>()
   return results ?? []
 }
@@ -119,11 +125,40 @@ export async function sortCategories(db: D1Database, ids: number[]): Promise<voi
 export async function listBookmarks(db: D1Database): Promise<Bookmark[]> {
   await ensureSchema(db)
   const { results } = await db
-    .prepare(
-      'SELECT id, category_id, title, url, icon, icon_source, icon_background_color, description, open_method, sort, created_at FROM bookmarks ORDER BY sort ASC, id ASC',
-    )
+    .prepare(BOOKMARK_LIST_SQL)
     .all<Bookmark>()
   return results ?? []
+}
+
+export async function listCategoriesAndBookmarks(db: D1Database): Promise<{
+  categories: Category[]
+  bookmarks: Bookmark[]
+}> {
+  await ensureSchema(db)
+  const [categoriesResult, bookmarksResult] = await db.batch([
+    db.prepare(CATEGORY_LIST_SQL),
+    db.prepare(BOOKMARK_LIST_SQL),
+  ])
+
+  return {
+    categories: (categoriesResult.results ?? []) as Category[],
+    bookmarks: (bookmarksResult.results ?? []) as Bookmark[],
+  }
+}
+
+export async function getAdminData(db: D1Database): Promise<AdminData> {
+  await ensureSchema(db)
+  const [categoriesResult, bookmarksResult, settingsResult] = await db.batch([
+    db.prepare(CATEGORY_LIST_SQL),
+    db.prepare(BOOKMARK_LIST_SQL),
+    db.prepare(SETTINGS_LIST_SQL),
+  ])
+
+  return {
+    categories: (categoriesResult.results ?? []) as Category[],
+    bookmarks: (bookmarksResult.results ?? []) as Bookmark[],
+    settings: settingsFromRows((settingsResult.results ?? []) as Array<{ key: string; value: string | null }>),
+  }
 }
 
 export async function getBookmark(db: D1Database, id: number): Promise<Bookmark | null> {
@@ -233,10 +268,9 @@ export async function sortBookmarks(db: D1Database, ids: number[]): Promise<void
 // ========== settings ==========
 
 // 内部读取：原始 key -> 解析后的 JSON 值
-async function readRawSettings(db: D1Database): Promise<Map<string, unknown>> {
-  const { results } = await db.prepare('SELECT key, value FROM settings').all<{ key: string; value: string | null }>()
+function readRawSettingsRows(rows: Array<{ key: string; value: string | null }>): Map<string, unknown> {
   const map = new Map<string, unknown>()
-  for (const row of results ?? []) {
+  for (const row of rows) {
     if (row.value == null) continue
     try {
       map.set(row.key, JSON.parse(row.value))
@@ -248,9 +282,7 @@ async function readRawSettings(db: D1Database): Promise<Map<string, unknown>> {
   return map
 }
 
-// 聚合成强类型 Settings（缺失字段回退默认值）
-export async function getSettings(db: D1Database): Promise<Settings> {
-  const raw = await readRawSettings(db)
+function settingsFromRawMap(raw: Map<string, unknown>): Settings {
   const out = { ...DEFAULT_SETTINGS } as Settings
   const assignSetting = <K extends keyof Settings>(key: K) => {
     if (raw.has(key)) {
@@ -260,6 +292,20 @@ export async function getSettings(db: D1Database): Promise<Settings> {
   }
   for (const key of SETTINGS_KEYS) assignSetting(key)
   return out
+}
+
+function settingsFromRows(rows: Array<{ key: string; value: string | null }>): Settings {
+  return settingsFromRawMap(readRawSettingsRows(rows))
+}
+
+async function readRawSettings(db: D1Database): Promise<Map<string, unknown>> {
+  const { results } = await db.prepare(SETTINGS_LIST_SQL).all<{ key: string; value: string | null }>()
+  return readRawSettingsRows(results ?? [])
+}
+
+// 聚合成强类型 Settings（缺失字段回退默认值）
+export async function getSettings(db: D1Database): Promise<Settings> {
+  return settingsFromRawMap(await readRawSettings(db))
 }
 
 export async function getSiteConfig(db: D1Database): Promise<SiteConfig> {
