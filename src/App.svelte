@@ -12,7 +12,7 @@
     Settings,
   } from '../shared/types'
   import Home from './views/Home.svelte'
-  import { api, getErrorMessage } from './lib/api'
+  import { api, getErrorMessage, isUnauthorizedError } from './lib/api'
   import { colorToRgbString } from './lib/color'
   import { prepareImportPayload, type ImportSource } from './lib/importData'
   import { adminStore, authStore, configStore, isAuthenticated, publicStore } from './lib/stores'
@@ -420,7 +420,13 @@
       try {
         await refreshLoggedInData()
       } catch (error) {
-        rootError = getErrorMessage(error)
+        if (isUnauthorizedError(error)) {
+          authStore.setSession(null)
+          adminStore.reset()
+          await refreshPublicData()
+        } else {
+          rootError = getErrorMessage(error)
+        }
       }
     } else {
       adminStore.reset()

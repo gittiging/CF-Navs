@@ -138,31 +138,13 @@ function createAuthStore() {
       return
     }
 
-    update((state) => ({ ...state, loading: true, error: null }))
-
-    try {
-      const me = await api.auth.me()
-      set({
-        session,
-        me,
-        initialized: true,
-        loading: false,
-        error: null,
-      })
-    } catch (error) {
-      if (isUnauthorizedError(error)) {
-        applySession(null)
-        return
-      }
-
-      update((state) => ({
-        ...state,
-        initialized: true,
-        loading: false,
-        error: toErrorMessage(error),
-      }))
-      throw error
-    }
+    set({
+      session,
+      me: session.username ? { username: session.username } : null,
+      initialized: true,
+      loading: false,
+      error: null,
+    })
   }
 
   async function login(username: string, password: string): Promise<LoginResp> {
