@@ -49,11 +49,16 @@ authRoutes.post('/login', loginRateLimit, async (c) => {
   const expires_at = Date.now() + ttlSeconds * 1000
   const token = generateToken()
   const session: SessionValue = { username: credentials.username, exp: expires_at }
+  const loginRateLimitState = c.get('loginRateLimitState')
 
-  await Promise.all([
+  const writes: Promise<unknown>[] = [
     c.env.SESSION.put(getSessionKey(token), JSON.stringify(session), { expirationTtl: ttlSeconds }),
-    clearLoginFailures(c.env, ip),
-  ])
+  ]
+  if (loginRateLimitState) {
+    writes.push(clearLoginFailures(c.env, ip))
+  }
+
+  await Promise.all(writes)
   cacheValidatedSession(token, session)
 
   const data: LoginResp = { token, expires_at, username: credentials.username }
