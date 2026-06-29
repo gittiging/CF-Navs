@@ -587,7 +587,22 @@
     }
 
     adminStore.reset()
-    await refreshPublicData()
+    if (isLoggedIn()) {
+      try {
+        await refreshLoggedInData()
+      } catch (error) {
+        if (isUnauthorizedError(error)) {
+          authStore.setSession(null)
+          adminStore.reset()
+        } else {
+          rootError = getErrorMessage(error)
+        }
+
+        await refreshPublicData()
+      }
+    } else {
+      await refreshPublicData()
+    }
 
     const nextView: AppView = get(configStore).data?.public_mode === false && !isLoggedIn() ? 'login' : 'home'
     if (nextView === 'login') {

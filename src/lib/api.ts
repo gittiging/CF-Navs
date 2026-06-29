@@ -246,9 +246,16 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   let response: Response
   try {
-    response = await fetch(buildUrl(path), {
+    const requestInit: RequestInit = {
       ...init,
       headers,
+    }
+    if (auth && requestInit.cache === undefined) {
+      requestInit.cache = 'no-store'
+    }
+
+    response = await fetch(buildUrl(path), {
+      ...requestInit,
     })
   } catch (error) {
     throw new ApiError('Network request failed', {
