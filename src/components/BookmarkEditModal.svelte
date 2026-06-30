@@ -273,31 +273,18 @@
   }
 
   function canPreviewIcon(icon: string): boolean {
+    return Boolean(icon.trim())
+  }
+
+  function canPreviewIconAsImage(icon: string): boolean {
     return /^https?:\/\//i.test(icon) || /^data:image\//i.test(icon) || Boolean(iconifyProxyIcon(icon))
   }
 
-  function createIconVersion(input: string): string {
-    let hash = 0
-    for (let i = 0; i < input.length; i += 1) {
-      hash = Math.imul(31, hash) + input.charCodeAt(i) | 0
-    }
-    return Math.abs(hash).toString(36)
-  }
-
-  function isFaviconImIconUrl(value: string): boolean {
-    try {
-      const hostname = new URL(value).hostname.toLowerCase()
-      return hostname === 'favicon.im' || hostname.endsWith('.favicon.im')
-    } catch {
-      return false
-    }
+  function getTextIconPreview(icon: string): string {
+    return icon.trim().slice(0, 4)
   }
 
   function getCandidatePreviewUrl(candidate: IconCandidate): string {
-    if (candidate.source === 'favicon_im') {
-      return logoSurfIcon(form.title.trim() || candidate.label, form.url.trim())
-    }
-
     if (candidate.source === 'iconify') {
       return iconifyProxyIcon(candidate.url)
     }
@@ -309,15 +296,6 @@
     const iconifyPreview = iconifyProxyIcon(form.icon)
     if (form.icon_source === 'iconify' || iconifyPreview) {
       return iconifyProxyIcon(iconifyNameFromUrl(form.icon) ?? iconifyName) || iconifyPreview
-    }
-
-    if ((form.icon_source === 'favicon_im' || isFaviconImIconUrl(form.icon)) && form.url.trim()) {
-      return logoSurfIcon(form.title.trim(), form.url.trim())
-    }
-
-    if (form.id != null && /^https?:\/\//i.test(form.icon)) {
-      const version = createIconVersion(`${form.id}:${form.icon_source ?? ''}:${form.icon}:${form.title}:${form.url}`)
-      return `/api/icon/${form.id}?v=${version}`
     }
 
     return form.icon
@@ -354,13 +332,16 @@
       iconifyName = iconifyNameFromUrl(candidate.url) ?? iconifyName
       iconifyUseConfirmed = false
       confirmedIconifyName = ''
+    } else {
+      iconifyName = ''
+      iconifyUseConfirmed = false
+      confirmedIconifyName = ''
     }
     candidateError = ''
     faviconError = ''
   }
 
-  function clearIconSelection() {
-    form.icon = ''
+  function markCustomIconInput() {
     form.icon_source = ''
     iconifyName = ''
     iconifyUseConfirmed = false
@@ -380,13 +361,18 @@
         ? iconifyIcon(iconifyName || trimmedIcon)
         : iconifyIcon(trimmedIcon)
     const submitIcon = submittedIconifyUrl || trimmedIcon
+    const submitIconSource = submitIcon
+      ? submittedIconifyUrl
+        ? 'iconify'
+        : form.icon_source || 'custom'
+      : ''
 
     await onSubmit?.({
       ...form,
       title: form.title.trim(),
       url: form.url.trim(),
       icon: submitIcon,
-      icon_source: submitIcon ? (submittedIconifyUrl ? 'iconify' : form.icon_source) : '',
+      icon_source: submitIconSource,
       icon_background_color: form.icon_background_color.trim(),
       description: form.description.trim(),
     })
@@ -422,7 +408,7 @@
       </div>
 
       <form class="modal-form" on:submit|preventDefault={handleSubmit}>
-        <label>
+        <label class="field-compact">
           <span>所属分类</span>
           <select bind:value={form.category_id} disabled={loading || categories.length === 0} required>
             {#if categories.length === 0}
@@ -435,18 +421,27 @@
           </select>
         </label>
 
-        <label>
+        <label class="field-compact">
           <span>书签标题</span>
           <input bind:value={form.title} type="text" placeholder="例如：Svelte 官方网站" required />
         </label>
 
-        <label>
+        <label class="field-compact">
           <span>链接地址</span>
           <input bind:value={form.url} type="url" placeholder="https://example.com" required />
         </label>
 
+        <label class="field-compact">
+          <span>打开方式</span>
+          <select bind:value={form.open_method}>
+            <option value="new_tab">新标签页</option>
+            <option value="same_tab">当前标签页</option>
+            <option value="modal">当前页弹层</option>
+          </select>
+        </label>
+
         <!-- 图标候选区 -->
-        <div class="icon-picker-section">
+        <div class="icon-picker-section field-compact">
           <span class="field-label">选择图标</span>
 
           {#if candidates.length > 0}
@@ -475,8 +470,20 @@
           {/if}
         </div>
 
+        <div class="field-block field-compact">
+          <span>图标背景色</span>
+          <ColorAlphaInput
+            bind:value={form.icon_background_color}
+            placeholder="留空则使用默认背景"
+            inputLabel="图标背景颜色值"
+            swatchTitle="选择图标背景色"
+            alphaText="图标背景透明度"
+          />
+          <small>可为单个书签图标设置背景色，留空则使用全局默认。</small>
+        </div>
+
         {#if showIconifyOptions}
-        <div class="iconify-section">
+        <div class="iconify-section field-wide">
           <div class="scheme-header">
             <span class="field-label">Iconify 图标</span>
             <button type="button" class="text-link-button" on:click={openIconifyLibrary}>
@@ -494,6 +501,8 @@
               <span class="iconify-preview">
                 <img src={iconifyPreviewUrl} alt="Iconify 图标预览" />
               </span>
+            {:else}
+              <span class="iconify-preview iconify-preview--empty" aria-hidden="true"></span>
             {/if}
             <button
               type="button"
@@ -534,7 +543,7 @@
         {/if}
 
         {#if showLogoSchemes}
-          <div class="logo-scheme-section">
+          <div class="logo-scheme-section field-wide">
             <div class="scheme-header">
               <span class="field-label">文字图标配色</span>
               <span class="scheme-current">{currentLogoScheme.bgColor} / {currentLogoScheme.textColor}</span>
@@ -558,15 +567,24 @@
           </div>
         {/if}
 
-        <label>
+        <label class="field-wide">
           <span>自定义图标 / 手动输入</span>
           <div class="icon-row">
             <input
               bind:value={form.icon}
               type="text"
               placeholder="图标 URL / 表情，如 ⭐"
-              on:focus={clearIconSelection}
+              on:input={markCustomIconInput}
             />
+            {#if form.icon && canPreviewIcon(form.icon)}
+              <span class="icon-preview" title="图标预览">
+                {#if canPreviewIconAsImage(form.icon)}
+                  <img src={getFormIconPreviewUrl()} alt="图标预览" />
+                {:else}
+                  <span class="icon-preview-text">{getTextIconPreview(form.icon)}</span>
+                {/if}
+              </span>
+            {/if}
             {#if imageHostUrl}
               <button
                 type="button"
@@ -579,42 +597,17 @@
               </button>
             {/if}
           </div>
-          {#if form.icon && canPreviewIcon(form.icon)}
-            <span class="icon-preview">
-              <img src={getFormIconPreviewUrl()} alt="图标预览" />
-              <small>图标预览</small>
-            </span>
-          {/if}
           {#if faviconError}
             <small class="field-error">{faviconError}</small>
           {/if}
         </label>
 
-        <div class="field-block">
-          <span>图标背景色</span>
-          <ColorAlphaInput
-            bind:value={form.icon_background_color}
-            placeholder="留空则使用默认背景"
-            inputLabel="图标背景颜色值"
-            swatchTitle="选择图标背景色"
-            alphaText="图标背景透明度"
-          />
-          <small>可为单个书签图标设置背景色，留空则使用全局默认。</small>
-        </div>
 
-        <label>
+        <label class="field-wide description-field">
           <span>描述</span>
           <textarea bind:value={form.description} rows="3" placeholder="补充说明，可选"></textarea>
         </label>
 
-        <label>
-          <span>打开方式</span>
-          <select bind:value={form.open_method}>
-            <option value="new_tab">新标签页</option>
-            <option value="same_tab">当前标签页</option>
-            <option value="modal">当前页弹层</option>
-          </select>
-        </label>
 
         {#if error}
           <p class="error-text">{error}</p>
@@ -667,7 +660,9 @@
     z-index: 1;
     display: flex;
     flex-direction: column;
-    width: min(100%, 600px);
+    width: min(100%, 680px);
+    height: min(720px, calc(100vh - 28px));
+    height: min(720px, calc(100dvh - 28px));
     max-height: calc(100vh - 28px);
     max-height: calc(100dvh - 28px);
     min-height: 0;
@@ -687,7 +682,7 @@
     justify-content: space-between;
     gap: 12px;
     margin: 0;
-    padding: 14px 16px 10px;
+    padding: 12px 16px 9px;
     border-bottom: 1px solid #e2e8f0;
   }
 
@@ -709,16 +704,27 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     display: grid;
-    gap: 7px;
-    padding: 12px 16px 0;
+    grid-template-columns: minmax(0, 1fr) minmax(180px, 0.85fr);
+    align-content: start;
+    gap: 8px 10px;
+    padding: 10px 14px 0;
   }
 
   label,
   .field-block {
     display: grid;
-    gap: 5px;
+    min-width: 0;
+    gap: 4px;
     color: #334155;
-    font-size: 14px;
+    font-size: 13px;
+  }
+
+  .field-wide {
+    grid-column: 1 / -1;
+  }
+
+  .field-compact {
+    grid-column: span 1;
   }
 
   .field-block > span {
@@ -731,9 +737,9 @@
     width: 100%;
     box-sizing: border-box;
     border: 1px solid #cbd5e1;
-    border-radius: 10px;
-    padding: 7px 10px;
-    font-size: 14px;
+    border-radius: 9px;
+    padding: 6px 9px;
+    font-size: 13px;
     color: #0f172a;
     background: #ffffff;
     font-family: inherit;
@@ -741,7 +747,7 @@
 
   textarea {
     resize: vertical;
-    min-height: 56px;
+    min-height: 48px;
   }
 
   input:focus,
@@ -761,11 +767,13 @@
   .hint-text {
     margin: 0;
     color: #94a3b8;
-    font-size: 13px;
-    padding: 4px 0;
+    font-size: 12px;
+    line-height: 1.35;
+    padding: 2px 0;
   }
 
   .error-text {
+    grid-column: 1 / -1;
     margin: 0;
     color: #dc2626;
     font-size: 13px;
@@ -773,24 +781,26 @@
 
   .icon-picker-section {
     display: grid;
+    min-width: 0;
     gap: 5px;
   }
 
   .iconify-section {
     display: grid;
+    min-width: 0;
     gap: 6px;
   }
 
   .iconify-row {
     display: grid;
-    grid-template-columns: minmax(160px, 300px) 34px max-content;
+    grid-template-columns: minmax(0, 1fr) 32px max-content;
     align-items: center;
     gap: 6px;
   }
 
   .iconify-preview {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     display: inline-flex;
@@ -800,9 +810,21 @@
   }
 
   .iconify-preview img {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     object-fit: contain;
+  }
+
+  .iconify-preview--empty {
+    opacity: 0.42;
+    background:
+      linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
+      linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
+      linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
+    background-color: #f8fafc;
+    background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+    background-size: 10px 10px;
   }
 
   .iconify-use-button {
@@ -839,25 +861,29 @@
 
   .icon-candidates {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
   }
 
   .iconify-candidates {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 6px;
+    max-height: 112px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 2px;
   }
 
   .candidate-card {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    min-height: 58px;
-    padding: 6px;
+    gap: 3px;
+    min-height: 46px;
+    padding: 4px;
     border: 2px solid #e2e8f0;
-    border-radius: 10px;
+    border-radius: 9px;
     background: #ffffff;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -875,14 +901,14 @@
   }
 
   .candidate-card img {
-    width: 28px;
-    height: 28px;
+    width: 22px;
+    height: 22px;
     object-fit: contain;
     border-radius: 6px;
   }
 
   .candidate-label {
-    font-size: 11px;
+    font-size: 10px;
     color: #475569;
     text-align: center;
     line-height: 1.2;
@@ -896,6 +922,7 @@
 
   .logo-scheme-section {
     display: grid;
+    min-width: 0;
     gap: 5px;
   }
 
@@ -913,9 +940,9 @@
 
   .logo-scheme-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 6px;
-    max-height: 104px;
+    max-height: 154px;
     overflow-y: auto;
     overscroll-behavior: auto;
     padding-right: 2px;
@@ -923,10 +950,10 @@
 
   .scheme-button {
     display: grid;
-    grid-template-columns: 28px minmax(0, 1fr);
+    grid-template-columns: 24px minmax(0, 1fr);
     align-items: center;
     gap: 5px;
-    min-height: 38px;
+    min-height: 34px;
     padding: 5px;
     border: 2px solid #e2e8f0;
     border-radius: 10px;
@@ -948,9 +975,9 @@
   }
 
   .scheme-preview {
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -963,7 +990,7 @@
   .scheme-name {
     min-width: 0;
     color: #475569;
-    font-size: 10px;
+    font-size: 9.5px;
     line-height: 1.2;
     overflow-wrap: anywhere;
   }
@@ -974,13 +1001,14 @@
   }
 
   .icon-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) max-content max-content;
     gap: 6px;
     align-items: center;
   }
 
   .icon-row input {
-    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .fetch-button,
@@ -992,32 +1020,51 @@
   .icon-preview {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    color: #64748b;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid #e2e8f0;
+    border-radius: 9px;
+    background: #f8fafc;
+    box-sizing: border-box;
   }
 
   .icon-preview img {
-    width: 26px;
-    height: 26px;
-    border-radius: 8px;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
     object-fit: cover;
-    border: 1px solid #e2e8f0;
-    background: #f8fafc;
+  }
+
+  .icon-preview-text {
+    max-width: 100%;
+    color: #475569;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    overflow: hidden;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .field-error {
+    margin: 0;
     color: #dc2626;
+    font-size: 12px;
+    line-height: 1.35;
   }
 
   .modal-actions {
+    grid-column: 1 / -1;
     position: sticky;
     bottom: 0;
     z-index: 2;
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-    margin: 0 -16px;
-    padding: 8px 16px 10px;
+    margin: 0 -14px;
+    padding: 7px 14px 9px;
     border-top: 1px solid #e2e8f0;
     background: rgba(255, 255, 255, 0.96);
     backdrop-filter: blur(10px);
@@ -1026,9 +1073,9 @@
   .primary-button,
   .ghost-button,
   .danger-button {
-    border-radius: 12px;
-    padding: 8px 14px;
-    font-size: 14px;
+    border-radius: 10px;
+    padding: 7px 12px;
+    font-size: 13px;
     cursor: pointer;
     transition: 0.18s ease;
   }
@@ -1060,22 +1107,54 @@
     opacity: 0.6;
   }
 
+  .modal-card :global(.color-picker-row) {
+    gap: 6px;
+  }
+
+  .modal-card :global(.color-picker-row input[type='text']) {
+    border-radius: 9px;
+    padding: 6px 9px;
+    font-size: 13px;
+  }
+
+  .modal-card :global(.color-swatch) {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+    border-radius: 9px;
+  }
+
   @media (max-width: 500px) {
     .modal-backdrop {
       padding: 10px;
     }
 
     .modal-card {
+      width: min(100%, 600px);
+      height: calc(100vh - 20px);
+      height: calc(100dvh - 20px);
       max-height: calc(100vh - 20px);
       max-height: calc(100dvh - 20px);
     }
 
+    .modal-form {
+      grid-template-columns: 1fr;
+      gap: 8px;
+      padding-right: 14px;
+      padding-left: 14px;
+    }
+
+    .field-compact,
+    .field-wide {
+      grid-column: 1 / -1;
+    }
+
     .icon-candidates {
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 
     .iconify-candidates {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
     .logo-scheme-grid {
@@ -1090,7 +1169,11 @@
 
     .icon-row {
       align-items: stretch;
-      flex-direction: column;
+      grid-template-columns: minmax(0, 1fr) 32px;
+    }
+
+    .icon-row .upload-button {
+      grid-column: 1 / -1;
     }
 
     .iconify-row {
@@ -1102,8 +1185,8 @@
     }
 
     .modal-actions {
-      margin-right: -16px;
-      margin-left: -16px;
+      margin-right: -14px;
+      margin-left: -14px;
       padding-right: 14px;
       padding-left: 14px;
     }

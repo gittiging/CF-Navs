@@ -54,7 +54,7 @@ npm run deploy
 
 部署成功后，访问返回的 URL 即可使用！
 
-部署新版后建议强制刷新一次页面，让新版 Service Worker 接管。验证首页搜索时，输入关键词应直接筛选书签区域；打开浏览器 Network 面板时，首页图标请求应优先显示为 `/api/icon/*`、`/api/category-icon/*` 或 `/api/iconify/*`，新增/编辑弹窗中的 Iconify 候选、手动预览和从 `icon-sets.iconify.design` 粘贴的页面链接也应显示为 `/api/iconify/*`，不应由前台直接请求 `favicon.im`、`api.iconify.design` 或 `icon-sets.iconify.design`。
+部署新版后建议强制刷新一次页面，让新版 Service Worker 接管。验证首页搜索时，输入关键词应直接筛选书签区域；打开浏览器 Network 面板时，首页图标请求应优先显示为 `/api/icon/*`、`/api/category-icon/*` 或 `/api/iconify/*`，普通 HTTP(S) 书签图标只有在 `/api/icon/*` 代理失败后才会回退请求原始外站 URL。新增/编辑弹窗中的 Iconify 候选、手动预览和从 `icon-sets.iconify.design` 粘贴的页面链接应显示为 `/api/iconify/*`，不应由前台直接请求 `api.iconify.design` 或 `icon-sets.iconify.design`。
 
 ## 🔑 首次登录
 
@@ -63,6 +63,8 @@ npm run deploy
 3. 输入凭据：
    - 用户名：`admin`
    - 密码：你刚才设置的密码
+
+登录成功后会回到前台首页，需要进入后台时再次点击右上角管理入口。
 
 ## 📝 下一步
 

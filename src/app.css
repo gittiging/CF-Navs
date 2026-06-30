@@ -33,20 +33,142 @@ select {
 }
 
 .app-splash {
-  min-height: 100vh;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 24px;
+  background:
+    radial-gradient(circle at 20% 18%, rgba(45, 212, 191, 0.2), transparent 28rem),
+    radial-gradient(circle at 78% 30%, rgba(96, 165, 250, 0.18), transparent 30rem),
+    radial-gradient(circle at 52% 88%, rgba(244, 114, 182, 0.12), transparent 28rem),
+    linear-gradient(145deg, #09111f 0%, #0f172a 46%, #111827 100%);
+}
+
+.app-splash::before,
+.app-splash::after {
+  position: absolute;
+  content: "";
+  pointer-events: none;
+}
+
+.app-splash::before {
+  inset: 0;
+  z-index: -2;
+  opacity: 0.38;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.14) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: radial-gradient(circle at 50% 42%, #000 0 36%, transparent 72%);
+}
+
+.app-splash::after {
+  z-index: -1;
+  width: min(78vw, 720px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(125, 211, 252, 0.16);
+  border-radius: 999px;
+  background:
+    conic-gradient(
+      from 160deg,
+      transparent 0deg,
+      rgba(45, 212, 191, 0.16) 72deg,
+      rgba(96, 165, 250, 0.22) 132deg,
+      transparent 210deg,
+      rgba(244, 114, 182, 0.12) 278deg,
+      transparent 360deg
+    );
+  opacity: 0.58;
+  transform: translate3d(0, 0, 0);
+  animation: splash-orbit 18s linear infinite;
 }
 
 .app-splash-card {
+  position: relative;
+  overflow: hidden;
   width: min(100%, 680px);
-  padding: 32px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 24px;
-  background: rgba(15, 23, 42, 0.72);
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.35);
+  padding: clamp(24px, 5vw, 40px);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 18px;
+  background:
+    linear-gradient(145deg, rgba(15, 23, 42, 0.86), rgba(15, 23, 42, 0.66)),
+    rgba(15, 23, 42, 0.72);
+  box-shadow:
+    0 28px 70px rgba(2, 8, 23, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(10px);
+}
+
+.app-splash-card--loading::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 16%, rgba(125, 211, 252, 0.12) 44%, transparent 70%);
+  opacity: 0.86;
+  transform: translateX(-120%);
+  animation: splash-sweep 4.8s ease-in-out infinite;
+}
+
+.app-splash-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.app-splash-mark {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 22px;
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  border-radius: 16px;
+  background:
+    linear-gradient(145deg, rgba(14, 165, 233, 0.22), rgba(45, 212, 191, 0.12)),
+    rgba(15, 23, 42, 0.76);
+  box-shadow:
+    0 18px 40px rgba(8, 47, 73, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.app-splash-mark::before {
+  position: absolute;
+  inset: 17px;
+  content: "";
+  border-radius: 7px;
+  background: #67e8f9;
+  box-shadow:
+    0 0 0 8px rgba(103, 232, 249, 0.08),
+    0 0 26px rgba(103, 232, 249, 0.55);
+}
+
+.app-splash-mark span {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #a7f3d0;
+  box-shadow: 0 0 16px rgba(167, 243, 208, 0.72);
+  animation: splash-pulse 1.8s ease-in-out infinite;
+}
+
+.app-splash-mark span:nth-child(1) {
+  top: 11px;
+  left: 11px;
+}
+
+.app-splash-mark span:nth-child(2) {
+  top: 11px;
+  right: 11px;
+  animation-delay: 0.25s;
+}
+
+.app-splash-mark span:nth-child(3) {
+  right: 11px;
+  bottom: 11px;
+  animation-delay: 0.5s;
 }
 
 .eyebrow {
@@ -66,6 +188,113 @@ h1 {
   margin: 16px 0 0;
   line-height: 1.7;
   color: rgba(226, 232, 240, 0.88);
+}
+
+.app-splash-progress {
+  margin-top: 28px;
+}
+
+.app-splash-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+  color: rgba(203, 213, 225, 0.78);
+  font-size: 0.84rem;
+}
+
+.app-splash-progress-meta span:last-child {
+  color: #99f6e4;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-splash-track {
+  position: relative;
+  overflow: hidden;
+  height: 9px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, rgba(15, 23, 42, 0.84), rgba(30, 41, 59, 0.82)),
+    rgba(15, 23, 42, 0.84);
+  box-shadow:
+    inset 0 1px 2px rgba(2, 8, 23, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.app-splash-track::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  opacity: 0.36;
+  background-image: linear-gradient(90deg, transparent 0 13px, rgba(255, 255, 255, 0.28) 13px 14px);
+  background-size: 28px 100%;
+}
+
+.app-splash-bar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #38bdf8, #2dd4bf 52%, #bef264);
+  box-shadow:
+    0 0 18px rgba(45, 212, 191, 0.58),
+    0 0 34px rgba(56, 189, 248, 0.26);
+  transform-origin: left center;
+  animation: splash-progress 2.8s cubic-bezier(0.66, 0, 0.34, 1) infinite;
+}
+
+@keyframes splash-orbit {
+  from {
+    transform: rotate(0deg) scale(1);
+  }
+
+  to {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes splash-sweep {
+  0%,
+  28% {
+    transform: translateX(-120%);
+  }
+
+  68%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes splash-pulse {
+  0%,
+  100% {
+    opacity: 0.42;
+    transform: scale(0.82);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+
+@keyframes splash-progress {
+  0% {
+    opacity: 0.52;
+    transform: translateX(-68%) scaleX(0.24);
+  }
+
+  46% {
+    opacity: 1;
+    transform: translateX(-8%) scaleX(0.72);
+  }
+
+  100% {
+    opacity: 0.68;
+    transform: translateX(104%) scaleX(0.28);
+  }
 }
 
 .app-toolbar {
@@ -126,5 +355,26 @@ h1 {
   .app-toolbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .app-splash {
+    padding: 18px;
+  }
+
+  .app-splash-card {
+    border-radius: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-splash::after,
+  .app-splash-card--loading::before,
+  .app-splash-mark span,
+  .app-splash-bar {
+    animation: none;
+  }
+
+  .app-splash-bar {
+    transform: scaleX(0.72);
   }
 }

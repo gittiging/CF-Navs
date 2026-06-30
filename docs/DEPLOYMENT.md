@@ -122,14 +122,15 @@ Published cf-navs (x.xx sec)
    - 密码：你设置的 `INIT_ADMIN_PASSWORD`
 
 - [ ] 登录成功
-- [ ] 能够进入管理界面
+- [ ] 登录成功后回到前台首页，再次点击管理入口能够进入管理界面
 
 ### 3. 测试基本功能
 
 - [ ] 创建分类成功
 - [ ] 创建书签成功
-- [ ] 创建书签时能看到 Favicon.im / 完整标题文字图标 / Google / Iconify 候选；文字图标配色和 Iconify 输入区默认收起，选中对应类型后展开；Iconify 候选和手动预览请求都走 `/api/iconify/*`
+- [ ] 创建书签时能看到 Favicon.im / 完整标题文字图标 / Google / Iconify 候选；打开方式与链接地址同行，图标背景色与图标候选同行；文字图标配色和 Iconify 输入区默认收起，选中对应类型后展开；Iconify 候选和手动预览请求都走 `/api/iconify/*`
 - [ ] 选择"文字图标"后能看到内置配色方案，并可切换保存 logo.surf 风格 SVG 图标
+- [ ] 手动输入纯文字或表情图标后保存，首页显示该自定义图标，而不是回退为书签标题首字
 - [ ] 新增/编辑书签弹窗内容过高时可在弹窗内滚动，保存按钮始终可见
 - [ ] 选中一种图标后保存，图标显示正常
 - [ ] 拖拽排序成功
@@ -140,8 +141,8 @@ Published cf-navs (x.xx sec)
 - [ ] 部署新版后强制刷新一次页面，确认新版 Service Worker 已激活
 - [ ] 首页搜索框输入关键词时，书签区域直接筛选，不出现本地书签下拉列表
 - [ ] 打开浏览器 Network 面板，上下滚动、搜索筛选、保存设置后，首页图标请求优先命中 `/api/icon/*`、`/api/category-icon/*` 或 `/api/iconify/*`
-- [ ] Network 面板中不应出现前台直接请求 `https://favicon.im/*`、`https://a.favicon.im/*`，首页和新增/编辑弹窗也不应直连 `https://api.iconify.design/*` 或 `https://icon-sets.iconify.design/*`
-- [ ] 第三方图标服务失败或限流时，浏览器控制台不应出现 favicon.im/Iconify 429；失败图标应显示文字 fallback
+- [ ] 普通 HTTP(S) 书签图标只有在 `/api/icon/*` 代理失败后才回退请求原始外站 URL；新增/编辑弹窗和首页都不应直连 `https://api.iconify.design/*` 或 `https://icon-sets.iconify.design/*`
+- [ ] Iconify 失败时显示文字 fallback；普通 HTTP(S) 书签图标代理失败时可回退原始 URL，若原始 URL 也失败则显示书签文字 fallback
 
 ### 4. 测试公开模式
 

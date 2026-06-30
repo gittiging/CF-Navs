@@ -561,7 +561,7 @@ iconRoutes.get('/icon/:id', async (c) => {
 
     const fetchedIcon = await fetchCacheableIcon(bookmark.icon)
     if (!fetchedIcon) {
-      return cachedFallbackIconResponse(c, c.req.raw, bookmark.title, bookmark.url)
+      return errorResponse('failed to fetch icon', 502)
     }
 
     if (isIconifyIconUrl(bookmark.icon)) {

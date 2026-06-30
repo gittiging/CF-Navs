@@ -24,25 +24,34 @@
 
   $: openInNewTab = bookmark.open_method === 1
   $: openInModal = bookmark.open_method === 3
-  $: iconText = bookmark.title.trim().slice(0, 1) || '书'
+  $: rawIcon = bookmark.icon?.trim() ?? ''
+  $: customTextIcon =
+    rawIcon &&
+    bookmark.icon_source !== 'logo_surf' &&
+    !isIconifyIconUrl(rawIcon) &&
+    !/^data:image\//i.test(rawIcon) &&
+    !/^https?:\/\//i.test(rawIcon)
+      ? rawIcon
+      : ''
+  $: iconText = customTextIcon || bookmark.title.trim().slice(0, 1) || '书'
   $: infoIconSize = Math.max(0, Math.min(height > 0 ? height : 70, width))
   $: compactIconSize = Math.max(0, iconSize)
   $: tooltipText = bookmark.description ? `${bookmark.title}\n${bookmark.description}` : bookmark.title
   $: nextIconStateKey = `${bookmark.id}:${bookmark.icon_source ?? ''}:${bookmark.icon ?? ''}:${bookmark.title}:${bookmark.url}`
-  $: iconVersion = createIconVersion(nextIconStateKey)
+  $: iconVersion = createIconVersion(`icon-render-v2:${nextIconStateKey}`)
   $: cardShellStyle =
     style === 'info'
       ? `min-width: ${width}px; ${height > 0 ? `height: ${height}px;` : ''}`
       : `width: ${compactIconSize}px; height: ${compactIconSize}px;`
   $: cardLinkStyle = height > 0 ? `height: ${height}px;` : ''
   $: iconifyProxyUrl =
-    bookmark.icon_source === 'iconify' || isIconifyIconUrl(bookmark.icon ?? '')
-      ? iconifyProxyIcon(bookmark.icon ?? '')
+    bookmark.icon_source === 'iconify' || isIconifyIconUrl(rawIcon)
+      ? iconifyProxyIcon(rawIcon)
       : ''
   $: canUseExternalIconFallback =
-    bookmark.icon_source === 'custom' &&
-    !isFaviconImIconUrl(bookmark.icon ?? '') &&
-    !isIconifyIconUrl(bookmark.icon ?? '')
+    /^https?:\/\//i.test(rawIcon) &&
+    bookmark.icon_source !== 'logo_surf' &&
+    !isIconifyIconUrl(rawIcon)
   $: if (nextIconStateKey !== iconStateKey) {
     iconStateKey = nextIconStateKey
     useExternalIcon = false
@@ -53,13 +62,13 @@
   // 图标来源：外部 URL 默认走 Worker 缓存代理；代理失败时再回退直连外站。
   $: iconUrl = (() => {
     if (bookmark.icon_source === 'logo_surf') return bookmark.icon || logoSurfIcon(bookmark.title, bookmark.url)
-    if (!bookmark.icon) return ''
+    if (!rawIcon || customTextIcon) return ''
     if (iconifyProxyUrl) return iconifyProxyUrl
-    if (/^data:image\//i.test(bookmark.icon)) return bookmark.icon
-    if (/^https?:\/\//i.test(bookmark.icon)) {
-      return useExternalIcon ? bookmark.icon : `/api/icon/${bookmark.id}?v=${iconVersion}`
+    if (/^data:image\//i.test(rawIcon)) return rawIcon
+    if (/^https?:\/\//i.test(rawIcon)) {
+      return useExternalIcon ? rawIcon : `/api/icon/${bookmark.id}?v=${iconVersion}`
     }
-    return bookmark.icon
+    return ''
   })()
   $: hasRenderableIcon = Boolean(iconUrl) && !fallbackFailed
 
@@ -71,17 +80,8 @@
     return Math.abs(hash).toString(36)
   }
 
-  function isFaviconImIconUrl(value: string): boolean {
-    try {
-      const hostname = new URL(value).hostname.toLowerCase()
-      return hostname === 'favicon.im' || hostname.endsWith('.favicon.im')
-    } catch {
-      return false
-    }
-  }
-
   function handleIconError() {
-    if (bookmark.icon_source === 'logo_surf' || !bookmark.icon || !/^https?:\/\//i.test(bookmark.icon)) {
+    if (bookmark.icon_source === 'logo_surf' || !rawIcon || !/^https?:\/\//i.test(rawIcon)) {
       fallbackFailed = true
       useExternalIcon = false
       return

@@ -32,6 +32,7 @@
     title: string
     url: string
     icon: string
+    icon_source: string
     icon_background_color: string
     description: string
     open_method: 'same_tab' | 'new_tab' | 'modal'
@@ -285,14 +286,6 @@
   const getBookmarksByCategory = (categoryId: string | number) =>
     bookmarks.filter((bookmark) => bookmark.category_id === categoryId)
 
-  function createIconVersion(input: string): string {
-    let hash = 0
-    for (let i = 0; i < input.length; i += 1) {
-      hash = Math.imul(31, hash) + input.charCodeAt(i) | 0
-    }
-    return Math.abs(hash).toString(36)
-  }
-
   function getBookmarkIconUrl(bookmark: AdminBookmark): string {
     const icon = bookmark.icon ?? ''
     const iconifyUrl =
@@ -302,8 +295,7 @@
     if (iconifyUrl) return iconifyUrl
     if (/^data:image\//i.test(icon)) return icon
     if (/^https?:\/\//i.test(icon)) {
-      const version = createIconVersion(`${bookmark.id}:${bookmark.icon_source ?? ''}:${icon}:${bookmark.title}:${bookmark.url}`)
-      return `/api/icon/${bookmark.id}?v=${version}`
+      return icon
     }
     return icon
   }

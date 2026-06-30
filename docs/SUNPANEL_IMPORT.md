@@ -62,7 +62,7 @@ node scripts/convert-sunpanel.cjs SunPanel-Data.json cf-navs-import.json
    - Iconify 图标：识别 `mdi:home`、`simple-icons:github`、`iconify:`、`@iconify-json/*`、`@iconify-icons/*` 和 `icon-sets.iconify.design/...`，保存为标准 Iconify URL，并通过 `/api/iconify/*` 代理缓存加载
    - 非图片图标：无法识别为 Iconify 时，导入后按现有图标候选逻辑处理
 
-   运行时前台不会直接请求 favicon.im。书签图标会通过 `/api/icon/:id` 代理读取 D1 与 Cloudflare 边缘缓存，分类图标会通过 `/api/category-icon/:id` 代理读取；第三方图标服务限流或失败时显示文字 fallback，避免浏览器控制台出现 favicon.im 429。
+   运行时书签图标会优先通过 `/api/icon/:id` 代理读取 D1 与 Cloudflare 边缘缓存，分类图标会通过 `/api/category-icon/:id` 代理读取；普通 HTTP(S) 书签图标代理失败后，前端才回退原始图标 URL。Iconify 图标始终通过 `/api/iconify/*` 代理缓存加载，非 URL 的自定义文字或表情图标会直接按文本渲染。
 
 2. **打开方式**：
    - Sun-Panel 的 `2`（新窗口）→ CF-Navs 的 `1`

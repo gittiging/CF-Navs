@@ -717,8 +717,7 @@
       loginModalOpen = false
       rootError = ''
       await refreshLoggedInData()
-      await ensureAdminComponent()
-      currentView = 'admin'
+      currentView = 'home'
     } catch {
       // authStore 已经记录错误
     }
@@ -1035,10 +1034,24 @@
 
 {#if booting}
   <div class="app-splash">
-    <div class="app-splash-card">
+    <div class="app-splash-card app-splash-card--loading" role="status" aria-live="polite" aria-busy="true">
+      <div class="app-splash-mark" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
       <p class="eyebrow">CF-Navs</p>
       <h1>正在加载项目数据...</h1>
       <p>前端状态与后端接口正在初始化，请稍候。</p>
+      <div class="app-splash-progress" aria-hidden="true">
+        <div class="app-splash-progress-meta">
+          <span>初始化数据</span>
+          <span>同步中</span>
+        </div>
+        <div class="app-splash-track">
+          <span class="app-splash-bar"></span>
+        </div>
+      </div>
     </div>
   </div>
 {:else}
@@ -1116,9 +1129,24 @@
       />
     {:else}
       <div class="app-splash">
-        <div class="app-splash-card">
+        <div class="app-splash-card app-splash-card--loading" role="status" aria-live="polite" aria-busy="true">
+          <div class="app-splash-mark" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
           <p class="eyebrow">CF-Navs</p>
           <h1>正在加载后台...</h1>
+          <p>管理界面分包正在按需载入。</p>
+          <div class="app-splash-progress" aria-hidden="true">
+            <div class="app-splash-progress-meta">
+              <span>载入模块</span>
+              <span>请稍候</span>
+            </div>
+            <div class="app-splash-track">
+              <span class="app-splash-bar"></span>
+            </div>
+          </div>
         </div>
       </div>
     {/if}

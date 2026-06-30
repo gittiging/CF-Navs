@@ -34,7 +34,7 @@
 | GET | `/api/me` | 无 | `{ username: string }` |
 
 管理员首次初始化使用 `INIT_ADMIN_USER` 和 `INIT_ADMIN_PASSWORD`。密码通过 WebCrypto PBKDF2 哈希后以 `salt:hash` 形式存入 `settings.admin_password`。
-`LoginResp` 包含 `token`、`expires_at` 和 `username`，前端登录成功后直接使用返回的 `username` 更新登录态，不再额外请求 `/api/me`。登录接口会在 bootstrap 初始化时用一次 settings 查询同时读取管理员账号和密码，并复用该结果进行密码校验，避免重复读取账号/密码设置。已有登录态刷新公开首页时只从本地恢复 session，首页数据仍优先匿名请求 `/api/public/data`，不会预加载 `/api/admin/data` 或 `/api/me`；进入后台、创建/编辑书签等需要后台数据时，才由 `/api/admin/data` 完成 token 校验。只有显式刷新用户信息时才需要 `/api/me`。
+`LoginResp` 包含 `token`、`expires_at` 和 `username`，前端登录成功后直接使用返回的 `username` 更新登录态并停留/返回前台首页，不再额外请求 `/api/me` 或立即预加载后台分包。登录接口会在 bootstrap 初始化时用一次 settings 查询同时读取管理员账号和密码，并复用该结果进行密码校验，避免重复读取账号/密码设置。已有登录态刷新公开首页时只从本地恢复 session，首页数据仍优先匿名请求 `/api/public/data`，不会预加载 `/api/admin/data` 或 `/api/me`；进入后台、创建/编辑书签等需要后台数据时，才由 `/api/admin/data` 完成 token 校验。只有显式刷新用户信息时才需要 `/api/me`。
 
 ## 后台聚合接口
 
@@ -75,7 +75,7 @@
 | 方法 | 路径 | 鉴权 | 说明 |
 | --- | --- | --- | --- |
 | GET | `/api/fetch-favicon?url=` | 登录 | 服务端解析目标站 favicon，失败回退 Google s2 |
-| GET | `/api/icon/:id` | 无 | 书签图标代理。优先返回 Cloudflare edge cache；cache miss 时一次读取书签图标地址、标题和 D1 中缓存的 `icon_blob`；无 blob 时按书签保存的 HTTP(S) 图标地址服务端抓取并写回 D1；外站失败、图标缺失或缓存损坏时返回 `no-store` 临时 SVG 文字图标，并带 `X-Icon-Fallback: 1` |
+| GET | `/api/icon/:id` | 无 | 书签图标代理。优先返回 Cloudflare edge cache；cache miss 时一次读取书签图标地址、标题和 D1 中缓存的 `icon_blob`；无 blob 时按书签保存的 HTTP(S) 图标地址服务端抓取并写回 D1；普通 HTTP(S) 外站抓取失败时返回 HTTP 502，让前端回退到原始图标 URL；图标缺失、非 HTTP(S) 值或缓存损坏时返回 `no-store` 临时 SVG 文字图标，并带 `X-Icon-Fallback: 1` |
 | GET | `/api/category-icon/:id` | 无 | 分类图标代理。优先返回 Cloudflare edge cache；HTTP(S) 分类图标由 Worker 服务端抓取；外站失败或图标缺失时返回 `no-store` 临时 SVG 文字图标，并带 `X-Icon-Fallback: 1` |
 | GET | `/api/iconify/:set/:name.svg` | 无 | Iconify 图标预览代理。新增/编辑书签弹窗通过该同源代理预览 Iconify 图标，成功响应可被浏览器 Service Worker 与 Cloudflare edge cache 复用；失败时返回 `no-store` 临时 SVG 文字图标，并带 `X-Icon-Fallback: 1` |
 
@@ -86,11 +86,11 @@
 - `logo_surf`：本地生成完整标题文字 SVG data URI，支持新增/编辑书签时选择 logo.surf 风格配色。
 - `google`：使用 Google s2 favicons 接口。
 - `iconify`：使用 Iconify SVG API，保存格式为 `https://api.iconify.design/{set}/{name}.svg`，例如 `mdi:home` 或 `https://icon-sets.iconify.design/mdi/home/` 会转换为 `https://api.iconify.design/mdi/home.svg`；新增/编辑弹窗会展示 Iconify 候选，候选、手动输入预览和 icon-sets 页面链接都通过 `/api/iconify/{set}/{name}.svg` 代理加载。
-- `custom`：手动填写 URL、表情或图床地址。
+- `custom`：手动填写 URL、表情、纯文字或图床地址。非 URL / 非 data URI 的值会在首页按文本图标直接渲染。
 
 创建或更新书签时，如果图标是普通 HTTP(S) 图片，后端会尝试异步缓存到 `bookmarks.icon_blob`；Iconify 图标和 icon-sets 页面链接不写入 `icon_blob`，由 `/api/iconify/:set/:name.svg`、Cloudflare edge cache 和浏览器 Service Worker 缓存复用。更新书签但图标地址未改变时不会清空已有 `icon_blob`。前台展示普通 HTTP(S) 书签图标时默认使用 `/api/icon/:id?v=...`，分类图标默认使用 `/api/category-icon/:id?v=...`，已保存的 Iconify 书签图标使用稳定的 `/api/iconify/:set/:name.svg`，避免页面刷新、搜索筛选或设置保存后直接重复请求外站。
 
-前端不应直接把 `favicon.im` 或持久化的 Iconify 图标地址渲染到首页 `<img>`。Favicon.im、Google s2、Iconify 或自定义外站图标都应通过图标代理展示；第三方服务限流、超时、4xx/5xx、图标缺失或缓存损坏时，代理返回 `no-store` 临时 SVG fallback，不写入长期缓存，也不让前台 `<img>` 请求产生 404。Service Worker 对 `/api/icon/*`、`/api/category-icon/*`、`/api/iconify/*` 和兼容旧版本的 `https://api.iconify.design/*.svg` 使用 cache-first 策略，但不会缓存带 `X-Icon-Fallback: 1` 的临时 fallback；同一个 Iconify 图标应共享同一个 `/api/iconify/*` 本地缓存键，不按书签 ID 重复缓存。
+前端展示普通 HTTP(S) 书签图标时应先请求 `/api/icon/:id`，代理返回错误后才回退到原始图标 URL，保证 Google s2、自定义外链或 favicon.im 在 Worker 抓取失败时仍可由浏览器尝试渲染。持久化的 Iconify 图标地址不直接渲染到首页 `<img>`，应规范化为 `/api/iconify/*`。图标缺失、非 HTTP(S) 值或缓存损坏时，代理返回 `no-store` 临时 SVG fallback，不写入长期缓存。Service Worker 对 `/api/icon/*`、`/api/category-icon/*`、`/api/iconify/*` 和兼容旧版本的 `https://api.iconify.design/*.svg` 使用 cache-first 策略，但不会缓存带 `X-Icon-Fallback: 1` 的临时 fallback；同一个 Iconify 图标应共享同一个 `/api/iconify/*` 本地缓存键，不按书签 ID 重复缓存。
 
 HTTP(S) 图标抓取成功后，代理会直接返回图片字节并写入 Cloudflare edge cache；只有书签图标需要写入 `bookmarks.icon_blob` 时才生成 base64 data URI，避免 Iconify 预览和分类图标在 Worker 内部做不必要的 base64 编解码。
 

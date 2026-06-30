@@ -36,6 +36,7 @@ export async function fetchCacheableIcon(iconUrl: string, timeoutMs = CACHE_TIME
       redirect: 'follow',
       headers: {
         Accept: ICON_ACCEPT,
+        'User-Agent': 'Mozilla/5.0 (compatible; CF-Navs/1.0)',
       },
     })
 
