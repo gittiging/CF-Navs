@@ -49,6 +49,11 @@ export interface BackgroundSetting {
   maskColor: string // 遮罩颜色（CSS 色值），例如 '#000000' 或 'rgba(0,0,0,0.5)'
 }
 
+export interface ThemeBackgroundSettings {
+  light: BackgroundSetting
+  dark: BackgroundSetting
+}
+
 export interface SearchEngine {
   name: string
   icon: string
@@ -83,7 +88,8 @@ export interface Settings {
   site_title_font_size: number
   public_mode: boolean
   theme: ThemeMode
-  background: BackgroundSetting
+  background: BackgroundSetting // 兼容旧版本：新逻辑优先使用 backgrounds
+  backgrounds: ThemeBackgroundSettings
   custom_css: string
   custom_js: string
   image_host_url: string
@@ -155,7 +161,8 @@ export interface PublicSettings {
   site_title_color: string
   site_title_font_size: number
   theme: ThemeMode
-  background: BackgroundSetting
+  background: BackgroundSetting // 兼容旧版本：新逻辑优先使用 backgrounds
+  backgrounds: ThemeBackgroundSettings
   search_engine: SearchEngineSetting
   image_host_url: string
   card_size: CardSizeSetting // 添加卡片尺寸

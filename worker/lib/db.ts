@@ -21,6 +21,10 @@ const DEFAULT_SETTINGS: Settings = {
   public_mode: true,
   theme: 'auto',
   background: { type: 'color', value: '#0f172a', blur: 0, mask: 0.3, maskColor: '#000000' },
+  backgrounds: {
+    light: { type: 'color', value: '#f8fafc', blur: 0, mask: 0.18, maskColor: '#ffffff' },
+    dark: { type: 'color', value: '#0f172a', blur: 0, mask: 0.3, maskColor: '#000000' },
+  },
   custom_css: '',
   custom_js: '',
   image_host_url: '',
@@ -51,6 +55,33 @@ const DEFAULT_SETTINGS: Settings = {
   footer_html: '',
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function normalizeBackgroundSetting(value: unknown, fallback: Settings['background']): Settings['background'] {
+  if (!isRecord(value)) return { ...fallback }
+
+  const type = value.type === 'image' || value.type === 'gradient' || value.type === 'color'
+    ? value.type
+    : fallback.type
+  return {
+    type,
+    value: typeof value.value === 'string' ? value.value : fallback.value,
+    blur: typeof value.blur === 'number' ? value.blur : fallback.blur,
+    mask: typeof value.mask === 'number' ? value.mask : fallback.mask,
+    maskColor: typeof value.maskColor === 'string' ? value.maskColor : fallback.maskColor,
+  }
+}
+
+function normalizeThemeBackgroundSettings(value: unknown, fallbackBackground: Settings['background']): Settings['backgrounds'] {
+  const fallback = isRecord(value) ? value : {}
+  return {
+    light: normalizeBackgroundSetting(fallback.light, fallbackBackground),
+    dark: normalizeBackgroundSetting(fallback.dark, fallbackBackground),
+  }
+}
+
 // Settings 中属于强类型聚合视图的 key（不含 admin_* 等内部 key）
 const SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[]
 const PUBLIC_DATA_SETTINGS_KEYS: (keyof Settings)[] = [
@@ -60,6 +91,7 @@ const PUBLIC_DATA_SETTINGS_KEYS: (keyof Settings)[] = [
   'public_mode',
   'theme',
   'background',
+  'backgrounds',
   'image_host_url',
   'search_engine',
   'card_size',
@@ -375,6 +407,8 @@ function settingsFromRawMap(raw: Map<string, unknown>): Settings {
     }
   }
   for (const key of SETTINGS_KEYS) assignSetting(key)
+  out.background = normalizeBackgroundSetting(out.background, DEFAULT_SETTINGS.background)
+  out.backgrounds = normalizeThemeBackgroundSettings(raw.get('backgrounds'), out.background)
   return out
 }
 

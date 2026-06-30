@@ -61,7 +61,6 @@
   type SortHandler = (orderedIds: Array<string | number>) => AsyncVoid
   type SortableActionOptions = {
     enabled: boolean
-    items: Array<{ id: string | number }>
     onSort?: SortHandler
   }
 
@@ -104,6 +103,7 @@
       | 'custom_js'
       | 'image_host_url'
       | 'background'
+      | 'backgrounds'
       | 'search_engine'
       | 'card_size'
       | 'card_style'
@@ -154,6 +154,7 @@
           | 'custom_js'
           | 'image_host_url'
           | 'background'
+          | 'backgrounds'
           | 'search_engine'
           | 'card_size'
           | 'card_style'
@@ -271,8 +272,13 @@
 
     return {
       update(nextOptions: SortableActionOptions) {
+        const shouldRebuild =
+          nextOptions.enabled !== options.enabled ||
+          nextOptions.onSort !== options.onSort
         options = nextOptions
-        void initSortable()
+        if (shouldRebuild) {
+          void initSortable()
+        }
       },
       destroy() {
         destroySortable()
@@ -467,11 +473,10 @@
           class="list-stack"
           use:sortableAction={{
             enabled: isAuthenticated && !categoriesLoading && !authLoading,
-            items: categories,
             onSort: onSortCategories,
           }}
         >
-          {#each categories as category}
+          {#each categories as category (category.id)}
             <article class="compact-card" data-sortable-item data-sort-id={category.id}>
               <button
                 type="button"
@@ -561,11 +566,10 @@
             <tbody
               use:sortableAction={{
                 enabled: isAuthenticated && !bookmarksLoading && !authLoading && !bookmarkSearch.trim(),
-                items: filteredBookmarks,
                 onSort: onSortBookmarks,
               }}
             >
-              {#each filteredBookmarks as bookmark}
+              {#each filteredBookmarks as bookmark (bookmark.id)}
                 <tr data-sortable-item data-sort-id={bookmark.id}>
                   <td>
                     <button

@@ -111,6 +111,8 @@ HTTP(S) 图标抓取成功后，代理会直接返回图片字节并写入 Cloud
 
 设置存储在 D1 `settings` 表中，`value` 为 JSON 字符串。后端读取时聚合为完整 `Settings` 对象，并对缺失字段使用默认值。后台设置面板提交完整 `Settings` 字段时，`PUT /api/settings` 写入 D1 后直接用本次提交的 payload 和默认值合成响应，避免额外回读 settings 全表；只提交部分字段的兼容请求仍会写入后读取完整 `Settings` 返回。
 
+背景配置保留旧版 `background` 字段作为兼容值，并新增 `backgrounds.light` / `backgrounds.dark` 分别保存浅色和深色主题的背景类型、背景值、模糊度、遮罩透明度和遮罩颜色。公开首页渲染时按当前实际主题优先读取 `backgrounds` 中对应配置；旧备份或旧数据库缺少 `backgrounds` 时，后端会用旧 `background` 自动派生两套背景。
+
 ## 导入接口
 
 | 方法 | 路径 | 鉴权 | 请求 | 返回 |

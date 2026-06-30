@@ -19,6 +19,7 @@ const COMPLETE_PUBLIC_SETTINGS_KEYS: Array<keyof Settings> = [
   'custom_js',
   'image_host_url',
   'background',
+  'backgrounds',
   'search_engine',
   'card_size',
   'card_style',
@@ -48,6 +49,21 @@ async function readJson<T>(c: AppContext): Promise<T | null> {
 
 function isCompletePublicSettingsPatch(body: SettingsUpdateReq): body is Partial<Settings> {
   return COMPLETE_PUBLIC_SETTINGS_KEYS.every((key) => body[key] !== undefined)
+}
+
+function isValidBackgroundPayload(value: unknown): value is Partial<Settings['background']> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+
+  const background = value as Partial<Settings['background']>
+  return (
+    (background.type === undefined || ['image', 'color', 'gradient'].includes(background.type)) &&
+    (background.value === undefined || typeof background.value === 'string') &&
+    (background.blur === undefined || typeof background.blur === 'number') &&
+    (background.mask === undefined || typeof background.mask === 'number') &&
+    (background.maskColor === undefined || typeof background.maskColor === 'string')
+  )
 }
 
 export const settingsRoutes = new Hono<HonoEnv>()
@@ -91,24 +107,20 @@ settingsRoutes.put('/', async (c) => {
     return badRequest(c, 'invalid image_host_url')
   }
   if (body.background !== undefined) {
-    const background = body.background
-    if (!background || typeof background !== 'object' || Array.isArray(background)) {
+    if (!isValidBackgroundPayload(body.background)) {
       return badRequest(c, 'invalid background')
     }
-    if ('type' in background && !['image', 'color', 'gradient'].includes(background.type)) {
-      return badRequest(c, 'invalid background.type')
+  }
+  if (body.backgrounds !== undefined) {
+    const backgrounds = body.backgrounds
+    if (!backgrounds || typeof backgrounds !== 'object' || Array.isArray(backgrounds)) {
+      return badRequest(c, 'invalid backgrounds')
     }
-    if ('value' in background && typeof background.value !== 'string') {
-      return badRequest(c, 'invalid background.value')
+    if (!isValidBackgroundPayload(backgrounds.light)) {
+      return badRequest(c, 'invalid backgrounds.light')
     }
-    if ('blur' in background && typeof background.blur !== 'number') {
-      return badRequest(c, 'invalid background.blur')
-    }
-    if ('mask' in background && typeof background.mask !== 'number') {
-      return badRequest(c, 'invalid background.mask')
-    }
-    if ('maskColor' in background && typeof background.maskColor !== 'string') {
-      return badRequest(c, 'invalid background.maskColor')
+    if (!isValidBackgroundPayload(backgrounds.dark)) {
+      return badRequest(c, 'invalid backgrounds.dark')
     }
   }
   if (

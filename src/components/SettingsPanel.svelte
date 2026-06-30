@@ -20,6 +20,7 @@
     | 'custom_js'
     | 'image_host_url'
     | 'background'
+    | 'backgrounds'
     | 'search_engine'
     | 'card_size'
     | 'card_style'
@@ -48,7 +49,8 @@
     { value: 'image', label: '图片', hint: '填写图片外链 URL（可使用图床直链）。' },
   ]
 
-  const defaultBackground: BackgroundSetting = { type: 'color', value: '#0f172a', blur: 0, mask: 0.3, maskColor: '#000000' }
+  const defaultLightBackground: BackgroundSetting = { type: 'color', value: '#f8fafc', blur: 0, mask: 0.18, maskColor: '#ffffff' }
+  const defaultDarkBackground: BackgroundSetting = { type: 'color', value: '#0f172a', blur: 0, mask: 0.3, maskColor: '#000000' }
   const defaultSearchEngine: SearchEngineSetting = {
     current: 'Google',
     engines: [
@@ -66,7 +68,11 @@
     custom_css: '',
     custom_js: '',
     image_host_url: '',
-    background: { ...defaultBackground },
+    background: { ...defaultDarkBackground },
+    backgrounds: {
+      light: { ...defaultLightBackground },
+      dark: { ...defaultDarkBackground },
+    },
     search_engine: { current: defaultSearchEngine.current, engines: defaultSearchEngine.engines.map((e) => ({ ...e })) },
     card_size: { width: 200, height: 0 }, // Sun-Panel 标准值
     card_style: 'info',
@@ -103,6 +109,10 @@
       custom_js: source.custom_js,
       image_host_url: source.image_host_url,
       background: { ...source.background },
+      backgrounds: {
+        light: { ...source.backgrounds.light },
+        dark: { ...source.backgrounds.dark },
+      },
       search_engine: {
         current: source.search_engine.current,
         engines: source.search_engine.engines.map((engine) => ({ ...engine })),
@@ -124,6 +134,8 @@
 
   function createFormState(source: Partial<SettingsPanelValue> | null | undefined): SettingsPanelValue {
     const background = source?.background
+    const lightBackground = source?.backgrounds?.light ?? background
+    const darkBackground = source?.backgrounds?.dark ?? background
     const searchEngine = source?.search_engine
     const cardSize = source?.card_size
     const contentLayout = source?.content_layout
@@ -137,11 +149,27 @@
       custom_js: source?.custom_js ?? '',
       image_host_url: source?.image_host_url ?? '',
       background: {
-        type: background?.type ?? defaultBackground.type,
-        value: background?.value ?? defaultBackground.value,
-        blur: typeof background?.blur === 'number' ? background.blur : defaultBackground.blur,
-        mask: typeof background?.mask === 'number' ? background.mask : defaultBackground.mask,
-        maskColor: background?.maskColor ?? defaultBackground.maskColor,
+        type: background?.type ?? defaultDarkBackground.type,
+        value: background?.value ?? defaultDarkBackground.value,
+        blur: typeof background?.blur === 'number' ? background.blur : defaultDarkBackground.blur,
+        mask: typeof background?.mask === 'number' ? background.mask : defaultDarkBackground.mask,
+        maskColor: background?.maskColor ?? defaultDarkBackground.maskColor,
+      },
+      backgrounds: {
+        light: {
+          type: lightBackground?.type ?? defaultLightBackground.type,
+          value: lightBackground?.value ?? defaultLightBackground.value,
+          blur: typeof lightBackground?.blur === 'number' ? lightBackground.blur : defaultLightBackground.blur,
+          mask: typeof lightBackground?.mask === 'number' ? lightBackground.mask : defaultLightBackground.mask,
+          maskColor: lightBackground?.maskColor ?? defaultLightBackground.maskColor,
+        },
+        dark: {
+          type: darkBackground?.type ?? defaultDarkBackground.type,
+          value: darkBackground?.value ?? defaultDarkBackground.value,
+          blur: typeof darkBackground?.blur === 'number' ? darkBackground.blur : defaultDarkBackground.blur,
+          mask: typeof darkBackground?.mask === 'number' ? darkBackground.mask : defaultDarkBackground.mask,
+          maskColor: darkBackground?.maskColor ?? defaultDarkBackground.maskColor,
+        },
       },
       search_engine: {
         current: searchEngine?.current ?? defaultSearchEngine.current,
@@ -186,17 +214,29 @@
     }))
   }
 
+  function normalizeBackground(source: BackgroundSetting, fallback: BackgroundSetting): BackgroundSetting {
+    const maskColor = splitCssColorAlpha(source.maskColor, fallback.maskColor, source.mask)
+    return {
+      type: source.type,
+      value: source.value.trim(),
+      blur: clampNumber(source.blur, 0, 40),
+      mask: clampNumber(maskColor.alpha, 0, 1),
+      maskColor: maskColor.color,
+    }
+  }
+
   function normalizeForm(source: SettingsPanelValue): SettingsPanelValue {
     const engines = normalizeEngines(source.search_engine.engines)
     const current = engines.some((engine) => engine.name === source.search_engine.current)
       ? source.search_engine.current
       : engines[0]?.name ?? ''
-    const maskColor = splitCssColorAlpha(source.background.maskColor, '#000000', source.background.mask)
     const cardBackgroundColor = splitCssColorAlpha(
       source.card_background_color,
       '#ffffff',
       source.card_background_opacity,
     )
+    const lightBackground = normalizeBackground(source.backgrounds.light, defaultLightBackground)
+    const darkBackground = normalizeBackground(source.backgrounds.dark, defaultDarkBackground)
     return {
       site_title: source.site_title.trim(),
       site_title_color: source.site_title_color?.trim() || '#ffffff',
@@ -206,12 +246,10 @@
       custom_css: source.custom_css?.trim() ?? '',
       custom_js: source.custom_js?.trim() ?? '',
       image_host_url: source.image_host_url.trim(),
-      background: {
-        type: source.background.type,
-        value: source.background.value.trim(),
-        blur: clampNumber(source.background.blur, 0, 40),
-        mask: clampNumber(maskColor.alpha, 0, 1),
-        maskColor: maskColor.color,
+      background: source.theme === 'dark' ? darkBackground : lightBackground,
+      backgrounds: {
+        light: lightBackground,
+        dark: darkBackground,
       },
       search_engine: { current, engines },
       card_size: {
@@ -259,7 +297,9 @@
     normalizedForm.search_engine.engines.every(
       (engine) => engine.name.length > 0 && engine.url_template.includes('{q}'),
     )
-  $: backgroundValid = normalizedForm.background.value.length > 0
+  $: lightBackgroundValid = normalizedForm.backgrounds.light.value.length > 0
+  $: darkBackgroundValid = normalizedForm.backgrounds.dark.value.length > 0
+  $: backgroundValid = lightBackgroundValid && darkBackgroundValid
   $: cardSizeValid =
     Number.isFinite(normalizedForm.card_size.width) &&
     normalizedForm.card_size.width >= 80 &&
@@ -284,8 +324,10 @@
     contentLayoutValid &&
     isDirty
   $: currentThemeHint = themeOptions.find((option) => option.value === form.theme)?.hint ?? ''
-  $: currentBackgroundHint =
-    backgroundTypeOptions.find((option) => option.value === form.background.type)?.hint ?? ''
+  $: lightBackgroundHint =
+    backgroundTypeOptions.find((option) => option.value === form.backgrounds.light.type)?.hint ?? ''
+  $: darkBackgroundHint =
+    backgroundTypeOptions.find((option) => option.value === form.backgrounds.dark.type)?.hint ?? ''
   $: uploadHost = form.image_host_url.trim()
 
   function addEngine() {
@@ -414,62 +456,142 @@
       <!-- 背景 -->
       <fieldset class="group" disabled={saving}>
         <legend>背景</legend>
-        <div class="form-grid">
-          <label class="field">
-            <span>背景类型</span>
-            <select bind:value={form.background.type}>
-              {#each backgroundTypeOptions as option}
-                <option value={option.value}>{option.label}</option>
-              {/each}
-            </select>
-            <small>{currentBackgroundHint}</small>
-          </label>
-
-          <label class="field">
-            <span>背景值</span>
-            <div class="inline-input">
-              <input
-                bind:value={form.background.value}
-                type="text"
-                placeholder={form.background.type === 'image'
-                  ? 'https://img.example.com/bg.png'
-                  : form.background.type === 'gradient'
-                    ? 'linear-gradient(135deg,#1e3a8a,#0f172a)'
-                    : '#0f172a'}
-              />
-              {#if form.background.type === 'image' && uploadHost}
-                <button type="button" class="ghost-button" on:click={openUpload}>打开图床上传 ↗</button>
-              {/if}
+        <div class="theme-background-grid">
+          <section class="theme-background-card">
+            <div class="theme-background-header">
+              <strong>浅色模式背景</strong>
+              <span>Light</span>
             </div>
-            {#if !backgroundValid}
-              <small class="warn">请填写背景值。</small>
-            {/if}
-          </label>
+            <div class="background-form">
+              <div class="background-main-row">
+                <label class="field background-type-field">
+                  <span>背景类型</span>
+                  <select bind:value={form.backgrounds.light.type}>
+                    {#each backgroundTypeOptions as option}
+                      <option value={option.value}>{option.label}</option>
+                    {/each}
+                  </select>
+                  <small>{lightBackgroundHint}</small>
+                </label>
 
-          <label class="field">
-            <span>模糊度 <em>{form.background.blur}px</em></span>
-            <input bind:value={form.background.blur} type="range" min="0" max="40" step="1" />
-            <small>对图片/渐变背景应用模糊，0 表示不模糊。</small>
-          </label>
+                <label class="field background-value-field">
+                  <span>背景值</span>
+                  <div class="inline-input">
+                    <input
+                      bind:value={form.backgrounds.light.value}
+                      type="text"
+                      placeholder={form.backgrounds.light.type === 'image'
+                        ? 'https://img.example.com/light-bg.png'
+                        : form.backgrounds.light.type === 'gradient'
+                          ? 'linear-gradient(135deg,#e0f2fe,#f8fafc)'
+                          : '#f8fafc'}
+                    />
+                    {#if form.backgrounds.light.type === 'image' && uploadHost}
+                      <button type="button" class="ghost-button" on:click={openUpload}>打开图床上传 ↗</button>
+                    {/if}
+                  </div>
+                  {#if !lightBackgroundValid}
+                    <small class="warn">请填写浅色模式背景值。</small>
+                  {/if}
+                </label>
+              </div>
 
-          <label class="field">
-            <span>遮罩透明度 <em>{form.background.mask.toFixed(2)}</em></span>
-            <input bind:value={form.background.mask} type="range" min="0" max="1" step="0.05" />
-            <small>叠加在背景上的遮罩，数值越大背景越淡。</small>
-          </label>
+              <div class="background-range-grid">
+                <label class="field">
+                  <span>模糊度 <em>{form.backgrounds.light.blur}px</em></span>
+                  <input bind:value={form.backgrounds.light.blur} type="range" min="0" max="40" step="1" />
+                  <small>对图片/渐变背景应用模糊，0 表示不模糊。</small>
+                </label>
 
-          <div class="field">
-            <span>遮罩颜色</span>
-            <ColorAlphaInput
-              bind:value={form.background.maskColor}
-              bind:alpha={form.background.mask}
-              placeholder="#000000"
-              inputLabel="遮罩颜色值"
-              swatchTitle="选择遮罩颜色"
-              alphaText="遮罩透明度"
-            />
-            <small>遮挡背景的蒙层色值，例如 <code>#000000</code>（黑色默认）或 <code>rgba(0,0,0,0.5)</code>。</small>
-          </div>
+                <label class="field">
+                  <span>遮罩透明度 <em>{form.backgrounds.light.mask.toFixed(2)}</em></span>
+                  <input bind:value={form.backgrounds.light.mask} type="range" min="0" max="1" step="0.05" />
+                  <small>叠加在背景上的遮罩，数值越大背景越淡。</small>
+                </label>
+              </div>
+
+              <div class="field">
+                <span>遮罩颜色</span>
+                <ColorAlphaInput
+                  bind:value={form.backgrounds.light.maskColor}
+                  bind:alpha={form.backgrounds.light.mask}
+                  placeholder="#ffffff"
+                  inputLabel="浅色遮罩颜色值"
+                  swatchTitle="选择浅色遮罩颜色"
+                  alphaText="浅色遮罩透明度"
+                />
+                <small>浅色模式常用白色或浅灰遮罩。</small>
+              </div>
+            </div>
+          </section>
+
+          <section class="theme-background-card">
+            <div class="theme-background-header">
+              <strong>深色模式背景</strong>
+              <span>Dark</span>
+            </div>
+            <div class="background-form">
+              <div class="background-main-row">
+                <label class="field background-type-field">
+                  <span>背景类型</span>
+                  <select bind:value={form.backgrounds.dark.type}>
+                    {#each backgroundTypeOptions as option}
+                      <option value={option.value}>{option.label}</option>
+                    {/each}
+                  </select>
+                  <small>{darkBackgroundHint}</small>
+                </label>
+
+                <label class="field background-value-field">
+                  <span>背景值</span>
+                  <div class="inline-input">
+                    <input
+                      bind:value={form.backgrounds.dark.value}
+                      type="text"
+                      placeholder={form.backgrounds.dark.type === 'image'
+                        ? 'https://img.example.com/dark-bg.png'
+                        : form.backgrounds.dark.type === 'gradient'
+                          ? 'linear-gradient(135deg,#1e3a8a,#0f172a)'
+                          : '#0f172a'}
+                    />
+                    {#if form.backgrounds.dark.type === 'image' && uploadHost}
+                      <button type="button" class="ghost-button" on:click={openUpload}>打开图床上传 ↗</button>
+                    {/if}
+                  </div>
+                  {#if !darkBackgroundValid}
+                    <small class="warn">请填写深色模式背景值。</small>
+                  {/if}
+                </label>
+              </div>
+
+              <div class="background-range-grid">
+                <label class="field">
+                  <span>模糊度 <em>{form.backgrounds.dark.blur}px</em></span>
+                  <input bind:value={form.backgrounds.dark.blur} type="range" min="0" max="40" step="1" />
+                  <small>对图片/渐变背景应用模糊，0 表示不模糊。</small>
+                </label>
+
+                <label class="field">
+                  <span>遮罩透明度 <em>{form.backgrounds.dark.mask.toFixed(2)}</em></span>
+                  <input bind:value={form.backgrounds.dark.mask} type="range" min="0" max="1" step="0.05" />
+                  <small>叠加在背景上的遮罩，数值越大背景越淡。</small>
+                </label>
+              </div>
+
+              <div class="field">
+                <span>遮罩颜色</span>
+                <ColorAlphaInput
+                  bind:value={form.backgrounds.dark.maskColor}
+                  bind:alpha={form.backgrounds.dark.mask}
+                  placeholder="#000000"
+                  inputLabel="深色遮罩颜色值"
+                  swatchTitle="选择深色遮罩颜色"
+                  alphaText="深色遮罩透明度"
+                />
+                <small>深色模式常用黑色或深蓝遮罩。</small>
+              </div>
+            </div>
+          </section>
         </div>
       </fieldset>
 
@@ -846,6 +968,77 @@
     gap: 16px;
   }
 
+  .theme-background-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .theme-background-card {
+    display: grid;
+    gap: 14px;
+    min-width: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 14px;
+    background: #fbfdff;
+  }
+
+  .theme-background-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .theme-background-header strong {
+    color: #0f172a;
+    font-size: 14px;
+  }
+
+  .theme-background-header span {
+    border-radius: 999px;
+    background: #e0f2fe;
+    color: #0369a1;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 8px;
+  }
+
+  .background-form {
+    display: grid;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  .background-main-row {
+    display: grid;
+    grid-template-columns: minmax(140px, 0.36fr) minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+  }
+
+  .background-range-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .background-type-field,
+  .background-value-field {
+    min-width: 0;
+    align-content: start;
+  }
+
+  .background-value-field .inline-input {
+    min-width: 0;
+  }
+
+  .background-value-field .ghost-button {
+    flex: 0 0 auto;
+    padding-inline: 12px;
+  }
+
   .field,
   .toggle-field,
   .engine-cell {
@@ -913,10 +1106,12 @@
     display: flex;
     gap: 8px;
     align-items: center;
+    min-width: 0;
   }
 
   .inline-input input {
-    flex: 1 1 auto;
+    flex: 1 1 0;
+    min-width: 0;
   }
 
   .toggle-field {
@@ -1045,6 +1240,24 @@
 
     .form-grid {
       grid-template-columns: 1fr;
+    }
+
+    .theme-background-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .background-main-row,
+    .background-range-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .background-value-field .inline-input {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .background-value-field .ghost-button {
+      width: 100%;
     }
 
     .engine-row {

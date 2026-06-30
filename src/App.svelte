@@ -78,6 +78,10 @@
   let backupError = ''
   let backupMessage = ''
   let preferredThemeMode: ThemeMode | null = null
+  let categorySortSavePromise: Promise<void> = Promise.resolve()
+  let bookmarkSortSavePromise: Promise<void> = Promise.resolve()
+  let categorySortRequestSeq = 0
+  let bookmarkSortRequestSeq = 0
 
   $: config = $configStore.data
   $: publicData = $publicStore.data
@@ -132,7 +136,7 @@
 
   type SettingsSubset = Pick<
     Settings,
-    'site_title' | 'site_title_color' | 'site_title_font_size' | 'public_mode' | 'theme' | 'custom_css' | 'custom_js' | 'image_host_url' | 'background' | 'search_engine' | 'card_size' | 'card_style' | 'card_icon_size' | 'card_show_description' | 'card_background_color' | 'card_background_opacity' | 'card_icon_show_title' | 'card_text_color' | 'search_box_show' | 'search_engine_selector_show' | 'content_layout' | 'footer_html'
+    'site_title' | 'site_title_color' | 'site_title_font_size' | 'public_mode' | 'theme' | 'custom_css' | 'custom_js' | 'image_host_url' | 'background' | 'backgrounds' | 'search_engine' | 'card_size' | 'card_style' | 'card_icon_size' | 'card_show_description' | 'card_background_color' | 'card_background_opacity' | 'card_icon_show_title' | 'card_text_color' | 'search_box_show' | 'search_engine_selector_show' | 'content_layout' | 'footer_html'
   >
 
   function toSettingsForm(settings: Settings | null): SettingsSubset | null {
@@ -148,6 +152,7 @@
       custom_js: settings.custom_js,
       image_host_url: settings.image_host_url,
       background: settings.background,
+      backgrounds: settings.backgrounds,
       search_engine: settings.search_engine,
       card_size: settings.card_size,
       card_style: settings.card_style,
@@ -171,6 +176,7 @@
       site_title_font_size: settings.site_title_font_size,
       theme: settings.theme,
       background: settings.background,
+      backgrounds: settings.backgrounds,
       search_engine: settings.search_engine,
       image_host_url: settings.image_host_url,
       card_size: settings.card_size,
@@ -232,10 +238,10 @@
     currentView = 'login'
   }
 
-  function buildHomeBackground(settings: PublicSettings | null): string {
+  function buildHomeBackground(settings: PublicSettings | null, theme: 'light' | 'dark'): string {
     if (!settings) return ''
 
-    const background = settings.background
+    const background = settings.backgrounds?.[theme] ?? settings.background
     const blur = Math.min(40, Math.max(0, Number(background.blur) || 0))
     const mask = Math.min(1, Math.max(0, Number(background.mask) ?? 0.3))
     const maskColor = background.maskColor?.trim() || '#000000'
@@ -270,7 +276,7 @@
   $: themeMode = preferredThemeMode ?? configuredThemeMode
   $: activeTheme = themeMode === 'auto' ? (systemPrefersDark ? 'dark' : 'light') : themeMode
 
-  $: homeBackgroundStyle = buildHomeBackground(publicData?.settings ?? null)
+  $: homeBackgroundStyle = buildHomeBackground(publicData?.settings ?? null, activeTheme)
 
   $: if (typeof document !== 'undefined') {
     document.documentElement.dataset.theme = activeTheme
@@ -472,7 +478,7 @@
     if (!updated) await refreshListsWhenLocalDataMissing()
   }
 
-  async function applyLocalCategorySort(ids: number[]): Promise<void> {
+  async function applyLocalCategorySort(ids: number[], refreshMissing = true): Promise<void> {
     const sortById = new Map(ids.map((id, index) => [id, index]))
     updateAdminCategoriesLocally((categories) => categories
       .map((category) => (
@@ -493,10 +499,10 @@
         .sort((a, b) => a.sort - b.sort || a.id - b.id),
     }))
 
-    if (!updated) await refreshListsWhenLocalDataMissing()
+    if (!updated && refreshMissing) await refreshListsWhenLocalDataMissing()
   }
 
-  async function applyLocalBookmarkSort(ids: number[]): Promise<void> {
+  async function applyLocalBookmarkSort(ids: number[], refreshMissing = true): Promise<void> {
     const sortById = new Map(ids.map((id, index) => [id, index]))
     updateAdminBookmarksLocally((bookmarks) => bookmarks
       .map((bookmark) => (
@@ -517,7 +523,7 @@
         .sort((a, b) => a.sort - b.sort || a.id - b.id),
     }))
 
-    if (!updated) await refreshListsWhenLocalDataMissing()
+    if (!updated && refreshMissing) await refreshListsWhenLocalDataMissing()
   }
 
   function applyLocalSettings(settings: Settings): void {
@@ -927,24 +933,48 @@
   async function handleSortCategories(ids: Array<string | number>): Promise<void> {
     categoryError = ''
 
+    const sortedIds = ids.map((id) => Number(id))
+    const requestSeq = ++categorySortRequestSeq
+    await applyLocalCategorySort(sortedIds, false)
+
+    const savePromise = categorySortSavePromise
+      .catch(() => undefined)
+      .then(async () => {
+        await api.categories.sort(sortedIds)
+      })
+    categorySortSavePromise = savePromise
+
     try {
-      const sortedIds = ids.map((id) => Number(id))
-      await api.categories.sort(sortedIds)
-      await applyLocalCategorySort(sortedIds)
+      await savePromise
     } catch (error) {
-      categoryError = getErrorMessage(error)
+      if (requestSeq === categorySortRequestSeq) {
+        categoryError = getErrorMessage(error)
+        await refreshLoggedInData().catch(() => undefined)
+      }
     }
   }
 
   async function handleSortBookmarks(ids: Array<string | number>): Promise<void> {
     bookmarkError = ''
 
+    const sortedIds = ids.map((id) => Number(id))
+    const requestSeq = ++bookmarkSortRequestSeq
+    await applyLocalBookmarkSort(sortedIds, false)
+
+    const savePromise = bookmarkSortSavePromise
+      .catch(() => undefined)
+      .then(async () => {
+        await api.bookmarks.sort(sortedIds)
+      })
+    bookmarkSortSavePromise = savePromise
+
     try {
-      const sortedIds = ids.map((id) => Number(id))
-      await api.bookmarks.sort(sortedIds)
-      await applyLocalBookmarkSort(sortedIds)
+      await savePromise
     } catch (error) {
-      bookmarkError = getErrorMessage(error)
+      if (requestSeq === bookmarkSortRequestSeq) {
+        bookmarkError = getErrorMessage(error)
+        await refreshLoggedInData().catch(() => undefined)
+      }
     }
   }
 
