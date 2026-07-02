@@ -149,7 +149,47 @@
 </aside>
 
 <style>
-  /* 移动端触发按钮 */
+  /* 分类快速选择栏和移动端触发按钮共用书签卡片玻璃变量 */
+  .toc-mobile-btn,
+  .toc-sidebar {
+    --toc-surface:
+      linear-gradient(135deg, rgb(var(--card-bg-rgb, 255 255 255) / calc(var(--card-bg-opacity, 0.9) * 0.78)), rgba(255, 255, 255, 0.34)),
+      rgb(var(--card-bg-rgb, 255 255 255) / calc(var(--card-bg-opacity, 0.9) * 0.62));
+    --toc-surface-strong:
+      linear-gradient(135deg, rgb(var(--card-bg-rgb, 255 255 255) / calc(var(--card-bg-opacity, 0.9) * 0.86)), rgba(255, 255, 255, 0.42)),
+      rgb(var(--card-bg-rgb, 255 255 255) / calc(var(--card-bg-opacity, 0.9) * 0.7));
+    --toc-item-bg: rgb(var(--card-bg-rgb, 255 255 255) / calc(var(--card-bg-opacity, 0.9) * 0.28));
+    --toc-item-hover-bg: rgb(var(--card-bg-rgb, 255 255 255) / calc(var(--card-bg-opacity, 0.9) * 0.44));
+    --toc-border: rgba(255, 255, 255, 0.42);
+    --toc-text: var(--home-text-color, #0f172a);
+    --toc-accent: var(--home-accent-color, #2563eb);
+    --toc-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.52),
+      0 10px 26px rgba(15, 23, 42, 0.11);
+    --toc-slip: rgba(15, 23, 42, 0.72);
+    --toc-slip-shadow: 0 5px 14px rgba(15, 23, 42, 0.18);
+  }
+
+  :global([data-theme='dark']) .toc-mobile-btn,
+  :global([data-theme='dark']) .toc-sidebar {
+    --toc-surface:
+      linear-gradient(135deg, rgb(var(--card-bg-rgb, 255 255 255) / calc(var(--card-bg-opacity, 0.15) * 0.82)), rgba(15, 23, 42, 0.22)),
+      rgb(var(--card-bg-rgb, 255 255 255) / calc(var(--card-bg-opacity, 0.15) * 0.7));
+    --toc-surface-strong:
+      linear-gradient(135deg, rgb(var(--card-bg-rgb, 255 255 255) / calc(var(--card-bg-opacity, 0.15) * 0.92)), rgba(15, 23, 42, 0.28)),
+      rgb(var(--card-bg-rgb, 255 255 255) / calc(var(--card-bg-opacity, 0.15) * 0.78));
+    --toc-item-bg: rgba(15, 23, 42, 0.18);
+    --toc-item-hover-bg: rgba(30, 41, 59, 0.38);
+    --toc-border: rgba(255, 255, 255, 0.1);
+    --toc-text: var(--home-text-color, #e5eefb);
+    --toc-accent: var(--home-accent-color, #7dd3fc);
+    --toc-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 14px 32px rgba(0, 0, 0, 0.24);
+    --toc-slip: rgba(226, 232, 240, 0.82);
+    --toc-slip-shadow: 0 5px 16px rgba(0, 0, 0, 0.24);
+  }
+
   .toc-mobile-btn {
     position: fixed;
     top: 20px;
@@ -157,16 +197,18 @@
     z-index: 40;
     width: 46px;
     height: 46px;
-    border: none;
-    border-radius: 0.5rem;
-    background-color: rgba(42, 42, 42, 0.42);
-    backdrop-filter: blur(8px);
-    color: white;
+    border: 1px solid var(--toc-border);
+    border-radius: 0.9rem;
+    background: var(--toc-surface);
+    backdrop-filter: blur(14px) saturate(1.18);
+    -webkit-backdrop-filter: blur(14px) saturate(1.18);
+    color: var(--toc-text);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s ease;
+    box-shadow: var(--toc-shadow);
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
   }
 
   .toc-mobile-btn svg {
@@ -175,7 +217,8 @@
   }
 
   .toc-mobile-btn:hover {
-    background-color: rgba(42, 42, 42, 0.65);
+    background: var(--toc-surface-strong);
+    border-color: color-mix(in srgb, var(--toc-accent) 46%, var(--toc-border));
     transform: scale(1.05);
   }
 
@@ -212,24 +255,24 @@
     justify-content: center;
     padding: 10px;
     overflow: hidden;
+    border: 1px solid var(--toc-border);
+    border-left: none;
     border-top-right-radius: 20px;
     border-bottom-right-radius: 20px;
-    transition: width 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
+    background: var(--toc-surface);
+    box-shadow: var(--toc-shadow);
+    backdrop-filter: blur(14px) saturate(1.18);
+    -webkit-backdrop-filter: blur(14px) saturate(1.18);
+    transition: width 0.3s ease, background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
   }
 
   .toc-sidebar.expanded {
     width: 200px;
-    background-color: rgba(42, 42, 42, 0.9);
-    backdrop-filter: blur(12px);
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+    background: var(--toc-surface);
   }
 
   .toc-sidebar.mobile-hidden {
     display: none;
-  }
-
-  :global([data-theme='dark']) .toc-sidebar.expanded {
-    background-color: rgba(15, 23, 42, 0.9);
   }
 
   /* 关闭按钮 */
@@ -239,18 +282,19 @@
     right: 12px;
     width: 40px;
     height: 40px;
-    border: none;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.18);
-    backdrop-filter: blur(2px);
-    color: #fff;
+    border: 1px solid var(--toc-border);
+    border-radius: 0.8rem;
+    background: var(--toc-item-bg);
+    backdrop-filter: blur(10px) saturate(1.12);
+    -webkit-backdrop-filter: blur(10px) saturate(1.12);
+    color: var(--toc-text);
     font-size: 24px;
     line-height: 1;
     display: none;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    z-index: 9999;
+    z-index: 2;
     transition: background 0.2s ease, transform 0.1s ease;
     touch-action: manipulation;
   }
@@ -260,11 +304,11 @@
   }
 
   .toc-close-btn:hover {
-    background: rgba(255, 255, 255, 0.32);
+    background: var(--toc-item-hover-bg);
   }
 
   .toc-close-btn:active {
-    background: rgba(255, 255, 255, 0.45);
+    background: var(--toc-item-hover-bg);
     transform: scale(0.95);
   }
 
@@ -272,30 +316,45 @@
   .toc-nav {
     width: 200px;
     margin-top: 56px;
+    display: grid;
+    gap: 6px;
   }
 
   /* 导航项 */
   .toc-item {
-    width: 100%;
+    width: calc(100% - 20px);
     border: none;
-    background: none;
+    border-radius: 0.9rem;
+    background: transparent;
     display: flex;
     align-items: center;
     cursor: pointer;
-    padding: 0;
+    padding: 0 10px 0 0;
     margin: 0;
+    color: var(--toc-text);
+    transition: background 0.18s ease, transform 0.18s ease;
+  }
+
+  .toc-sidebar.expanded .toc-item {
+    background: var(--toc-item-bg);
+  }
+
+  .toc-sidebar.expanded .toc-item:hover,
+  .toc-sidebar.expanded .toc-item.active {
+    background: var(--toc-item-hover-bg);
+    transform: translateX(2px);
   }
 
   /* 条纹指示器 */
   .toc-slip {
     width: 20px;
     height: 6px;
-    background-color: white;
+    background-color: var(--toc-slip);
     border-radius: 4px;
-    margin: 15px 0;
+    margin: 13px 0;
     flex-shrink: 0;
-    transition: width 0.3s ease, height 0.3s ease, box-shadow 0.3s ease;
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
+    transition: width 0.3s ease, height 0.3s ease, box-shadow 0.3s ease, background 0.18s ease;
+    box-shadow: var(--toc-slip-shadow);
   }
 
   .toc-sidebar.expanded .toc-slip {
@@ -307,7 +366,7 @@
   }
 
   .toc-item.active .toc-slip {
-    background-color: #3b82f6;
+    background-color: var(--toc-accent);
   }
 
   /* 标题文字 */
@@ -315,7 +374,7 @@
     opacity: 0;
     white-space: nowrap;
     font-size: 14px;
-    color: white;
+    color: var(--toc-text);
     margin-left: 0;
     transition: opacity 0.3s ease, margin-left 0.3s ease, font-size 0.3s ease;
   }
@@ -330,11 +389,7 @@
   }
 
   .toc-item.active .toc-title {
-    color: #60a5fa;
-  }
-
-  :global([data-theme='dark']) .toc-item.active .toc-title {
-    color: #60a5fa;
+    color: var(--toc-accent);
   }
 
   /* 移动端适配 */
