@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { ErrCode } from '../../shared/types'
-import { getAdminData } from '../lib/db'
+import { getAdminData, getDataVersion } from '../lib/db'
 import { shouldBypassRequestCache } from '../lib/requestCache'
 import { fail, ok } from '../lib/response'
 import { getCachedAdminData, setCachedAdminData } from '../lib/runtimeCache'
@@ -20,7 +20,10 @@ adminRoutes.get('/data', async (c) => {
       }
     }
 
-    const data = await getAdminData(c.env.DB)
+    const data = {
+      ...await getAdminData(c.env.DB),
+      version: await getDataVersion(c.env.DB),
+    }
     if (!bypassCache) {
       setCachedAdminData(data)
     }

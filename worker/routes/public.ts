@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import {
   ErrCode,
   type ApiResponse,
+  type DataVersionResp,
   type PublicData,
   type PublicSettings,
   type Settings,
@@ -14,7 +15,7 @@ import {
   matchPublicDataCache,
   matchSiteConfigCache,
 } from '../lib/cache'
-import { getPublicDataSource, getSiteConfig } from '../lib/db'
+import { getDataVersion, getPublicDataSource, getSiteConfig } from '../lib/db'
 import { shouldBypassRequestCache } from '../lib/requestCache'
 import { fail } from '../lib/response'
 import { ok } from '../lib/response'
@@ -102,6 +103,42 @@ publicRoutes.get('/config', async (c) => {
   return response
 })
 
+publicRoutes.get('/data/version', async (c) => {
+  const token = extractBearerToken(c.req.header('Authorization'))
+  const siteConfig = await getSiteConfig(c.env.DB)
+
+  if (!siteConfig.public_mode) {
+    if (!token) {
+      return c.json({
+        ...fail(ErrCode.FORBIDDEN, 'forbidden'),
+        data: {
+          site_title: siteConfig.site_title,
+          public_mode: false,
+        },
+      }, 200, {
+        'Cache-Control': 'no-store',
+      })
+    }
+
+    const session = await validateSession(c.env, token)
+    if (!session) {
+      return unauthorizedResponse()
+    }
+
+    c.set('username', session.username)
+  }
+
+  const data: DataVersionResp = {
+    version: await getDataVersion(c.env.DB),
+    site_title: siteConfig.site_title,
+    public_mode: siteConfig.public_mode,
+  }
+
+  return c.json(ok(data), 200, {
+    'Cache-Control': 'no-store',
+  })
+})
+
 publicRoutes.get('/public/data', async (c) => {
   const token = extractBearerToken(c.req.header('Authorization'))
   const bypassCache = shouldBypassRequestCache(c.req.header('Cache-Control'), c.req.header('Pragma'))
@@ -127,7 +164,9 @@ publicRoutes.get('/public/data', async (c) => {
       }, 200, {
         'Cache-Control': 'no-store',
       })
-      cachePrivatePublicDataResponse(c, c.req.url, response)
+      if (!bypassCache) {
+        cachePrivatePublicDataResponse(c, c.req.url, response)
+      }
       return response
     }
 
@@ -153,7 +192,9 @@ publicRoutes.get('/public/data', async (c) => {
       }, 200, {
         'Cache-Control': 'no-store',
       })
-      cachePrivatePublicDataResponse(c, c.req.url, response)
+      if (!bypassCache) {
+        cachePrivatePublicDataResponse(c, c.req.url, response)
+      }
       return response
     }
 
@@ -172,6 +213,7 @@ publicRoutes.get('/public/data', async (c) => {
     categories: publicDataSource.categories,
     bookmarks: publicDataSource.bookmarks,
     settings: toPublicSettings(publicSettings),
+    version: await getDataVersion(c.env.DB),
   }
 
   const response = c.json(ok(data), 200, {

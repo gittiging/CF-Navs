@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import type { Context } from 'hono'
 import { ErrCode, type Settings, type SettingsUpdateReq } from '../../shared/types'
 import { invalidatePublicDataCache, invalidateSiteConfigCache } from '../lib/cache'
-import { getSettings, settingsFromPatchDefaults, updateSettings, writeSettingsPatch } from '../lib/db'
+import { getSettings, settingsFromPatchDefaults, touchDataVersion, updateSettings, writeSettingsPatch } from '../lib/db'
 import { fail, ok } from '../lib/response'
 import { invalidateRuntimeDataCache } from '../lib/runtimeCache'
 import type { HonoEnv } from '../types'
@@ -188,6 +188,7 @@ settingsRoutes.put('/', async (c) => {
     } else {
       settings = await updateSettings(c.env.DB, body)
     }
+    await touchDataVersion(c.env.DB)
     invalidateRuntimeDataCache()
     invalidatePublicDataCache(c, c.req.url)
     invalidateSiteConfigCache(c, c.req.url)

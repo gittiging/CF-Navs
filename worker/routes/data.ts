@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import type { Context } from 'hono'
 import { ErrCode, type Bookmark, type Category, type ImportReq, type ImportResp } from '../../shared/types'
 import { invalidatePublicDataCache, invalidateSiteConfigCache } from '../lib/cache'
-import { getSettings, importData } from '../lib/db'
+import { getSettings, importData, touchDataVersion } from '../lib/db'
 import { fail, ok } from '../lib/response'
 import { invalidateRuntimeDataCache } from '../lib/runtimeCache'
 import type { HonoEnv } from '../types'
@@ -92,10 +92,12 @@ dataRoutes.post('/import', async (c) => {
       settings: body.settings,
     })
     const settings = await getSettings(c.env.DB)
+    const version = await touchDataVersion(c.env.DB)
     const data = {
       categories: result.importedCategories,
       bookmarks: result.importedBookmarks,
       settings,
+      version,
     }
     invalidateRuntimeDataCache()
     invalidatePublicDataCache(c, c.req.url)

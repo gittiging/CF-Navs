@@ -18,18 +18,16 @@
   } from '../shared/types'
   import Home from './views/Home.svelte'
   import { api, getErrorMessage, isApiError, isUnauthorizedError } from './lib/api'
-  import { clearCachedAdminData, readCachedAdminData, writeCachedAdminData } from './lib/adminDataCache'
+  import { clearCachedAdminData, readCachedAdminDataEntry, writeCachedAdminData } from './lib/adminDataCache'
   import { colorToRgbString } from './lib/color'
   import { prepareImportPayload, type ImportSource } from './lib/importData'
   import { createBookmarkIconCacheKey, writeBookmarkIconDataUri } from './lib/localBookmarkIconCache'
+  import { clearCachedPublicData, readCachedPublicDataEntry, writeCachedPublicData } from './lib/publicDataCache'
   import { adminStore, authStore, configStore, isAuthenticated, publicStore } from './lib/stores'
 
   type AppView = 'home' | 'admin' | 'login'
 
   const THEME_STORAGE_KEY = 'cf-navs.theme-mode'
-  const REMOTE_DATA_REFRESH_THROTTLE_MS = 15_000
-  const VISIBLE_DATA_REFRESH_INTERVAL_MS = 60_000
-
   type CategoryFormValue = {
     id?: string | number
     title: string
@@ -86,9 +84,7 @@
   let bookmarkSortSavePromise: Promise<void> = Promise.resolve()
   let categorySortRequestSeq = 0
   let bookmarkSortRequestSeq = 0
-  let lastRemoteDataRefreshAt = 0
-  let remoteDataRefreshPromise: Promise<void> | null = null
-  let visibleDataRefreshTimer: number | null = null
+  let currentDataVersion: string | null = null
 
   $: config = $configStore.data
   $: publicData = $publicStore.data
@@ -344,6 +340,101 @@
     return bookmarkEditModalPromise
   }
 
+  function getDataVersion(data: { version?: string } | null | undefined): string | null {
+    return typeof data?.version === 'string' && data.version ? data.version : null
+  }
+
+  function stripPublicDataVersion(data: PublicData): PublicData {
+    const { version: _version, ...rest } = data
+    return rest as PublicData
+  }
+
+  function stripAdminDataVersion(data: AdminData): AdminData {
+    const { version: _version, ...rest } = data
+    return rest as AdminData
+  }
+
+  function recordsEqual(a: object, b: object): boolean {
+    const left = a as Record<string, unknown>
+    const right = b as Record<string, unknown>
+    const leftKeys = Object.keys(left)
+    const rightKeys = Object.keys(right)
+    if (leftKeys.length !== rightKeys.length) return false
+
+    for (const key of leftKeys) {
+      if (!Object.prototype.hasOwnProperty.call(right, key)) return false
+      if (!Object.is(left[key], right[key])) return false
+    }
+
+    return true
+  }
+
+  function jsonEqual(a: unknown, b: unknown): boolean {
+    if (a === b) return true
+
+    try {
+      return JSON.stringify(a) === JSON.stringify(b)
+    } catch {
+      return false
+    }
+  }
+
+  function mergeRowsById<T extends { id: number }>(current: T[], next: T[]): T[] {
+    if (current.length === 0) return next
+
+    const currentById = new Map(current.map((item) => [item.id, item]))
+    let changed = current.length !== next.length
+
+    const merged = next.map((item, index) => {
+      const existing = currentById.get(item.id)
+      const value = existing && recordsEqual(existing, item) ? existing : item
+      if (current[index] !== value) changed = true
+      return value
+    })
+
+    return changed ? merged : current
+  }
+
+  function mergePublicData(current: PublicData | null, next: PublicData): PublicData {
+    if (!current) return next
+
+    const categories = mergeRowsById(current.categories, next.categories)
+    const bookmarks = mergeRowsById(current.bookmarks, next.bookmarks)
+    const settings = jsonEqual(current.settings, next.settings) ? current.settings : next.settings
+
+    if (categories === current.categories && bookmarks === current.bookmarks && settings === current.settings) {
+      return current
+    }
+
+    return { categories, bookmarks, settings }
+  }
+
+  function mergeAdminData(current: AdminData, next: AdminData): AdminData {
+    const categories = mergeRowsById(current.categories, next.categories)
+    const bookmarks = mergeRowsById(current.bookmarks, next.bookmarks)
+    const settings = jsonEqual(current.settings, next.settings) ? current.settings : next.settings
+
+    if (categories === current.categories && bookmarks === current.bookmarks && settings === current.settings) {
+      return current
+    }
+
+    return { categories, bookmarks, settings }
+  }
+
+  function applyPublicData(data: PublicData, version = getDataVersion(data)): PublicData {
+    const cleanData = stripPublicDataVersion(data)
+    const currentState = get(publicStore)
+    const merged = mergePublicData(currentState.data, cleanData)
+
+    if (!currentState.loaded || merged !== currentState.data) {
+      publicStore.setData(merged)
+    }
+
+    applyConfigFromPublicData(merged)
+    currentDataVersion = version
+    return merged
+  }
+
   async function refreshPublicData(): Promise<PublicData | null> {
     const config = get(configStore).data
     if (config?.public_mode === false && !isLoggedIn()) {
@@ -351,10 +442,29 @@
       return null
     }
 
+    const cached = !isLoggedIn() ? await readCachedPublicDataEntry() : null
+    if (cached?.data) {
+      applyPublicData(cached.data, cached.version)
+    }
+
     try {
-      const data = await publicStore.refresh(false)
-      applyConfigFromPublicData(data)
-      lastRemoteDataRefreshAt = Date.now()
+      if (cached?.version) {
+        const remoteVersion = await api.data.version(false)
+        configStore.setData({
+          site_title: remoteVersion.site_title,
+          public_mode: remoteVersion.public_mode,
+        })
+        currentDataVersion = remoteVersion.version
+
+        if (remoteVersion.version === cached.version) {
+          return get(publicStore).data
+        }
+      }
+
+      const data = applyPublicData(await api.public.getData(false))
+      if (!isLoggedIn()) {
+        await writeCachedPublicData(data, currentDataVersion)
+      }
       return data
     } catch (error) {
       if (isPublicModeForbidden(error)) {
@@ -365,12 +475,11 @@
 
         if (isLoggedIn()) {
           try {
-            const data = await publicStore.refresh(true)
+            const data = applyPublicData(await api.public.getData(true))
             configStore.setData({
               site_title: data.settings.site_title || forbiddenConfig.site_title,
               public_mode: false,
             })
-            lastRemoteDataRefreshAt = Date.now()
             return data
           } catch (authError) {
             if (isUnauthorizedError(authError)) {
@@ -388,9 +497,14 @@
           }
         }
 
+        await clearCachedPublicData()
         publicStore.reset()
         configStore.setData(forbiddenConfig)
         return null
+      }
+
+      if (cached?.data) {
+        return get(publicStore).data
       }
 
       rootError = getErrorMessage(error)
@@ -601,45 +715,58 @@
     await persistCurrentAdminData()
   }
 
-  function applyLoggedInData(data: AdminData): void {
-    if (!data.settings) {
+  function applyLoggedInData(data: AdminData, version = getDataVersion(data)): void {
+    const cleanData = stripAdminDataVersion(data)
+    if (!cleanData.settings) {
       throw new Error('failed to load admin settings')
     }
 
-    adminStore.replaceData(data)
-    applyConfigFromSettings(data.settings)
-    publicStore.setData({
-      categories: data.categories,
-      bookmarks: data.bookmarks,
-      settings: toPublicSettings(data.settings),
-    })
+    const currentAdminState = get(adminStore)
+    const mergedAdminData = mergeAdminData(currentAdminState.data, cleanData)
+    if (!currentAdminState.loaded || mergedAdminData !== currentAdminState.data) {
+      adminStore.replaceData(mergedAdminData)
+    }
+
+    const settings = mergedAdminData.settings
+    if (!settings) {
+      throw new Error('failed to load admin settings')
+    }
+
+    applyConfigFromSettings(settings)
+    applyPublicData({
+      categories: mergedAdminData.categories,
+      bookmarks: mergedAdminData.bookmarks,
+      settings: toPublicSettings(settings),
+    }, version)
   }
 
   async function persistCurrentAdminData(): Promise<void> {
     const data = get(adminStore).data
     if (isLoggedIn() && data.settings) {
-      await writeCachedAdminData(data)
+      await writeCachedAdminData(data, currentDataVersion)
     }
   }
 
   async function refreshLoggedInData(forceRemote = false): Promise<void> {
-    let usedCachedFallback = false
+    const cached = !forceRemote ? await readCachedAdminDataEntry() : null
 
-    if (!forceRemote) {
-      const cached = await readCachedAdminData()
-      if (cached?.settings) {
-        applyLoggedInData(cached)
-        usedCachedFallback = true
-      }
+    if (cached?.data.settings) {
+      applyLoggedInData(cached.data, cached.version)
     }
 
     try {
+      if (cached?.version) {
+        const remoteVersion = await api.data.version(true)
+        currentDataVersion = remoteVersion.version
+        if (remoteVersion.version === cached.version) {
+          return
+        }
+      }
+
       applyLoggedInData(await api.admin.getData())
-      lastRemoteDataRefreshAt = Date.now()
       await persistCurrentAdminData()
     } catch (error) {
-      if (usedCachedFallback) {
-        lastRemoteDataRefreshAt = Date.now()
+      if (cached?.data.settings && !isUnauthorizedError(error)) {
         return
       }
 
@@ -709,79 +836,6 @@
     }
     currentView = nextView
     booting = false
-  }
-
-  function hasPendingLocalDataChange(): boolean {
-    return (
-      savingCategory ||
-      savingBookmark ||
-      savingSettings ||
-      importing ||
-      deletingCategoryId !== null ||
-      deletingBookmarkId !== null
-    )
-  }
-
-  async function handleRemoteDataRefreshError(error: unknown): Promise<void> {
-    if (isUnauthorizedError(error)) {
-      authStore.setSession(null)
-      adminStore.reset()
-      await clearCachedAdminData()
-      await refreshPublicData()
-
-      const nextView: AppView = get(configStore).data?.public_mode === false ? 'login' : 'home'
-      if (nextView === 'login') {
-        await ensureLoginModalComponent()
-        loginModalOpen = true
-      }
-      currentView = nextView
-      return
-    }
-
-    rootError = getErrorMessage(error)
-  }
-
-  async function refreshCurrentDataFromRemote(force = false): Promise<void> {
-    if (booting || currentView === 'login' || hasPendingLocalDataChange()) return
-
-    const now = Date.now()
-    if (!force && now - lastRemoteDataRefreshAt < REMOTE_DATA_REFRESH_THROTTLE_MS) return
-    if (remoteDataRefreshPromise) return remoteDataRefreshPromise
-
-    remoteDataRefreshPromise = (async () => {
-      try {
-        rootError = ''
-        if (isLoggedIn()) {
-          await refreshLoggedInData(true)
-        } else {
-          await refreshPublicData()
-        }
-      } catch (error) {
-        await handleRemoteDataRefreshError(error)
-      } finally {
-        remoteDataRefreshPromise = null
-      }
-    })()
-
-    return remoteDataRefreshPromise
-  }
-
-  function requestRemoteDataRefresh(force = false): void {
-    void refreshCurrentDataFromRemote(force)
-  }
-
-  function handleWindowFocus(): void {
-    requestRemoteDataRefresh()
-  }
-
-  function handlePageShow(event: PageTransitionEvent): void {
-    requestRemoteDataRefresh(event.persisted)
-  }
-
-  function handleVisibilityChange(): void {
-    if (document.visibilityState === 'visible') {
-      requestRemoteDataRefresh()
-    }
   }
 
   function resetCategoryState(): void {
@@ -1254,28 +1308,12 @@
       mediaQuery.addEventListener('change', handleSystemThemeChange)
     }
 
-    window.addEventListener('focus', handleWindowFocus)
-    window.addEventListener('pageshow', handlePageShow)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    visibleDataRefreshTimer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        requestRemoteDataRefresh()
-      }
-    }, VISIBLE_DATA_REFRESH_INTERVAL_MS)
-
     void initializeApp()
   })
 
   onDestroy(() => {
     if (mediaQuery && handleSystemThemeChange) {
       mediaQuery.removeEventListener('change', handleSystemThemeChange)
-    }
-    window.removeEventListener('focus', handleWindowFocus)
-    window.removeEventListener('pageshow', handlePageShow)
-    document.removeEventListener('visibilitychange', handleVisibilityChange)
-    if (visibleDataRefreshTimer !== null) {
-      window.clearInterval(visibleDataRefreshTimer)
-      visibleDataRefreshTimer = null
     }
   })
 </script>

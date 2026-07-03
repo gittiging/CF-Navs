@@ -149,6 +149,7 @@ export interface PublicData {
   categories: PublicCategory[]
   bookmarks: PublicBookmark[]
   settings: PublicSettings
+  version?: string
 }
 
 // GET /api/admin/data  登录态后台聚合数据
@@ -156,6 +157,14 @@ export interface AdminData {
   categories: Category[]
   bookmarks: Bookmark[]
   settings: Settings | null
+  version?: string
+}
+
+// GET /api/data/version  lightweight data version check
+export interface DataVersionResp {
+  version: string
+  site_title: string
+  public_mode: boolean
 }
 
 // 公开输出的设置子集（不含密码等敏感项）

@@ -130,6 +130,7 @@ const PUBLIC_DATA_SETTINGS_LIST_SQL = `SELECT key, value FROM settings WHERE key
 const PUBLIC_DATA_SETTINGS_WITHOUT_SITE_CONFIG_LIST_SQL = `SELECT key, value FROM settings WHERE key IN (${PUBLIC_DATA_SETTINGS_WITHOUT_SITE_CONFIG_KEYS
   .map((key) => `'${key}'`)
   .join(',')})`
+const DATA_VERSION_KEY = 'data_version'
 // D1 单条预处理语句最多绑定 100 个参数；本 UPDATE 每个 id 用 3 个参数
 // （CASE 的 WHEN ? THEN ? 两个 + WHERE IN (?) 一个），故每批最多 33 个 id，取 30 留余量。
 const SORT_UPDATE_CHUNK_SIZE = 30
@@ -523,6 +524,36 @@ export async function setSettingValue(db: D1Database, key: string, value: unknow
     .prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
     .bind(key, JSON.stringify(value))
     .run()
+}
+
+function createDataVersion(): string {
+  const random = new Uint32Array(2)
+  crypto.getRandomValues(random)
+  return `${Date.now().toString(36)}-${random[0].toString(36)}${random[1].toString(36)}`
+}
+
+export async function getDataVersion(db: D1Database): Promise<string> {
+  const row = await db
+    .prepare('SELECT value FROM settings WHERE key = ?')
+    .bind(DATA_VERSION_KEY)
+    .first<{ value: string | null }>()
+  if (!row?.value) return '0'
+
+  try {
+    const parsed = JSON.parse(row.value) as unknown
+    if (typeof parsed === 'string' && parsed) return parsed
+    if (typeof parsed === 'number' && Number.isFinite(parsed)) return String(parsed)
+  } catch {
+    if (row.value) return row.value
+  }
+
+  return '0'
+}
+
+export async function touchDataVersion(db: D1Database): Promise<string> {
+  const version = createDataVersion()
+  await setSettingValue(db, DATA_VERSION_KEY, version)
+  return version
 }
 
 function settingsPatchStatement(db: D1Database, patch: Partial<Settings>): D1PreparedStatement | null {

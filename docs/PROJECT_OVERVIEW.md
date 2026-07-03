@@ -188,7 +188,7 @@ SESSION_TTL = "604800"             # 会话有效期（7天）
 ### 前端
 - Vite 快速构建
 - 首页主包、后台管理和书签编辑弹窗代码分割，后台功能按需加载
-- 匿名首页启动使用 `/api/public/data` 派生站点配置，公开关闭时复用 1005 响应中的轻量配置进入登录页，匿名 1005 会短时走 edge cache；前端应用请求聚合数据时默认带 no-cache 指令，手动刷新和多端同步会直接确认远端最新数据
+- 匿名首页启动优先使用本地公开快照加 `/api/data/version` 做远端确认；本地无快照或版本变化时才请求 `/api/public/data` 派生站点配置。公开关闭时复用 1005 响应中的轻量配置进入登录页，匿名 1005 会短时走 edge cache
 - 登录弹窗、后台管理和书签编辑弹窗独立分包；未登录访问管理入口或私有站点登录页时只下载轻量登录弹窗，登录成功后回到前台首页，进入后台时才下载后台管理分包
 - 加载提示使用轻量 CSS 动画和进度条，不依赖重型脚本或图片资源
 - Worker 为非 HTML 的 `/assets/*` hash 构建产物设置一年 immutable 缓存，为 HTML 和 `sw.js` 设置 no-cache 重验证；Service Worker 预缓存 `/index.html` 做离线回退，避免安装阶段重复预缓存根路径，并且运行时只缓存成功静态资源和成功 HTML 导航响应，避免失败响应污染本地缓存
@@ -197,7 +197,7 @@ SESSION_TTL = "604800"             # 会话有效期（7天）
 - 前台右上角主题按钮使用浏览器本地偏好快速切换亮暗模式，不触发 Worker 请求；新增/编辑书签弹窗默认收起文字图标配色和 Iconify 输入区，选中对应图标类型后才展开
 - SunPanel 导入会识别 Iconify 图标名和 icon-sets 页面链接，导入后保存为标准 Iconify URL 并标记 `icon_source: iconify`，首页走 `/api/iconify/*` 代理与本地缓存
 - 首页搜索预计算书签索引，滚动高亮缓存分区 DOM 并用 `requestAnimationFrame` 节流
-- 登录态启动、后台入口或首页管理操作会使用 `/api/admin/data` 一次拉取分类、书签和完整设置，并从完整设置派生站点配置；同一登录态会把后台聚合数据写入浏览器本地快照，页面刷新时可先用快照恢复界面，但随后仍会远端确认最新数据
+- 登录态启动会先读取后台聚合本地快照，再用 `/api/data/version` 做远端确认；版本相同时不拉完整数据，版本变化、无快照、后台入口需要完整数据或首页管理操作需要回滚时，才使用 `/api/admin/data` 一次拉取分类、书签和完整设置，并从完整设置派生站点配置
 - 登录响应携带用户名；登录成功和已有登录态启动都无需先请求 `/api/me`
 - Worker 认证中间件在单个 isolate 内短时复用已验证 session，后台连续操作不必每个请求都读取 KV，登录成功和退出登录会同步更新该内存缓存
 - 前端 API 客户端在内存中复用已解析的有效登录态，认证请求不再反复读取和解析 localStorage，并监听跨标签页 storage 变更
@@ -206,6 +206,7 @@ SESSION_TTL = "604800"             # 会话有效期（7天）
 - 登录成功时只有当前 IP 确实存在失败状态才删除限流 key，正常首次登录不再产生多余 KV delete
 - 导入恢复接口直接返回导入后的后台聚合数据，前端无需导入后再请求 `/api/admin/data`；Worker 复用本次导入时已经规范化的分类和书签结果，只额外读取完整 settings，避免写入后再从 D1 重读刚导入的两张表
 - 后台 CRUD、排序和设置保存后使用接口返回值增量更新本地 store，避免额外拉取全量 `/api/public/data`
+- 完整聚合数据拉回后，前端按 `id` 合并分类和书签，未变化对象复用原引用，只动态替换变化项，降低手动刷新后的 UI 抖动
 - 书签新增、编辑弹窗打开后和保存后通过显式刷新接口更新普通外站图标 blob；编辑打开时刷新在后台执行，不阻塞弹窗显示；刷新接口使用短超时，失败时保留已有 blob，首页可用保存的 HTTP(S) 图标 URL 兜底；普通渲染、搜索筛选和前后台切换不再重复请求外站图标并写 D1
 - 后台保存设置和导入恢复的 settings 写入合并为单条多 VALUES upsert，减少完整配置保存时的 D1 statement 数
 - 分类和书签排序使用分块 `UPDATE ... CASE id ... WHERE id IN (...)`，大列表拖拽排序时不再为每个 id 生成一条 D1 statement
@@ -215,8 +216,9 @@ SESSION_TTL = "604800"             # 会话有效期（7天）
 - KV 会话缓存
 - Worker 边缘计算
 - `/api/config` 使用短 TTL Cloudflare edge cache，设置保存和导入后主动失效
+- `/api/data/version` 使用内部 `settings.data_version` 做轻量变更确认；分类、书签、排序、设置、导入和实际变化的显式图标缓存刷新都会更新版本
 - 匿名 `/api/public/data` 未携带 no-cache 指令时使用 Cloudflare edge cache，命中时不读取 D1；cache miss 时优先复用 `/api/config` edge cache，没有命中才轻量读取 `site_title/public_mode` 并预热配置缓存，私有模式下的匿名 1005 响应也短时缓存到 edge，写入接口负责失效缓存
-- `/api/admin/data` 合并后台进入时的数据读取，分类、书签和 settings 使用 D1 batch 读取；请求带 no-cache 指令时会绕过 Worker isolate 内的短 TTL 运行时聚合缓存
+- `/api/admin/data` 合并后台进入时的数据读取，分类、书签和 settings 使用 D1 batch 读取，并随响应携带当前数据版本；请求带 no-cache 指令时会绕过 Worker isolate 内的短 TTL 运行时聚合缓存
 - `/api/public/data` 确认公开后用一次 D1 batch 合并公开 settings、分类和书签读取，并只读取首页公开字段，不返回 `created_at` 等管理字段；同请求内刚从 D1 读取过的 `site_title/public_mode` 会合并进公开 settings，避免第二次 settings 查询重复读取这两行
 - 后台设置面板提交完整 `Settings` 字段时，`PUT /api/settings` 写入 D1 后直接由提交 payload 合成响应；只有兼容性部分更新请求才写后回读完整 settings
 - 分类和书签新增用单条 `INSERT ... SELECT ... RETURNING` 合并末尾排序计算和返回值，书签新增还会在同一语句中判断分类是否存在；分类和书签更新使用 `UPDATE ... RETURNING` 直接返回更新后的完整行，避免更新前额外读取旧记录；书签更新在 SQL 内只于图标变化时清空 `icon_blob`

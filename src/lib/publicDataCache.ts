@@ -1,20 +1,19 @@
-import type { AdminData } from '../../shared/types'
-import { getStoredAuthSession } from './api'
+import type { PublicData } from '../../shared/types'
 
-const CACHE_NAME = 'cf-navs-admin-data-v1'
+const CACHE_NAME = 'cf-navs-public-data-v1'
 const CACHE_ORIGIN = 'https://cf-navs.local'
-const STORAGE_PREFIX = 'cf-navs.admin-data.'
+const STORAGE_PREFIX = 'cf-navs.public-data.'
 const MAX_LOCAL_STORAGE_BYTES = 3_500_000
 
-type CachedAdminDataPayload = {
+type CachedPublicDataPayload = {
   saved_at: number
   version?: string | null
-  data: AdminData
+  data: PublicData
 }
 
-export interface CachedAdminDataEntry {
+export interface CachedPublicDataEntry {
   version: string | null
-  data: AdminData
+  data: PublicData
 }
 
 function canUseCacheStorage(): boolean {
@@ -37,14 +36,12 @@ function currentOrigin(): string {
   return typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'local'
 }
 
-function sessionCacheKey(): string | null {
-  const session = getStoredAuthSession()
-  if (!session) return null
-  return `${hash(currentOrigin())}-${hash(`${session.username}:${session.token}:${session.expires_at}`)}`
+function cacheKey(): string {
+  return hash(currentOrigin())
 }
 
-function cacheRequest(cacheKey: string): Request {
-  return new Request(`${CACHE_ORIGIN}/admin-data/${encodeURIComponent(cacheKey)}`, {
+function cacheRequest(key: string): Request {
+  return new Request(`${CACHE_ORIGIN}/public-data/${encodeURIComponent(key)}`, {
     method: 'GET',
   })
 }
@@ -53,30 +50,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
-function isAdminData(value: unknown): value is AdminData {
+function isPublicData(value: unknown): value is PublicData {
   if (!isRecord(value)) return false
-  return (
-    Array.isArray(value.categories) &&
-    Array.isArray(value.bookmarks) &&
-    isRecord(value.settings) &&
-    typeof value.settings.background_preset_id === 'string'
-  )
+  return Array.isArray(value.categories) && Array.isArray(value.bookmarks) && isRecord(value.settings)
 }
 
-function parsePayload(value: unknown): CachedAdminDataEntry | null {
-  if (!isRecord(value) || !isAdminData(value.data)) return null
+function parsePayload(value: unknown): CachedPublicDataEntry | null {
+  if (!isRecord(value) || !isPublicData(value.data)) return null
   return {
     version: typeof value.version === 'string' ? value.version : null,
     data: value.data,
   }
 }
 
-async function readCacheStorage(cacheKey: string): Promise<CachedAdminDataEntry | null> {
+async function readCacheStorage(key: string): Promise<CachedPublicDataEntry | null> {
   if (!canUseCacheStorage()) return null
 
   try {
     const cache = await caches.open(CACHE_NAME)
-    const cached = await cache.match(cacheRequest(cacheKey))
+    const cached = await cache.match(cacheRequest(key))
     if (!cached) return null
     return parsePayload(await cached.json())
   } catch {
@@ -84,11 +76,11 @@ async function readCacheStorage(cacheKey: string): Promise<CachedAdminDataEntry 
   }
 }
 
-function readLocalStorage(cacheKey: string): CachedAdminDataEntry | null {
+function readLocalStorage(key: string): CachedPublicDataEntry | null {
   if (!canUseLocalStorage()) return null
 
   try {
-    const raw = localStorage.getItem(`${STORAGE_PREFIX}${cacheKey}`)
+    const raw = localStorage.getItem(`${STORAGE_PREFIX}${key}`)
     if (!raw) return null
     return parsePayload(JSON.parse(raw))
   } catch {
@@ -96,22 +88,14 @@ function readLocalStorage(cacheKey: string): CachedAdminDataEntry | null {
   }
 }
 
-export async function readCachedAdminData(): Promise<AdminData | null> {
-  return (await readCachedAdminDataEntry())?.data ?? null
+export async function readCachedPublicDataEntry(): Promise<CachedPublicDataEntry | null> {
+  const key = cacheKey()
+  return readLocalStorage(key) ?? await readCacheStorage(key)
 }
 
-export async function readCachedAdminDataEntry(): Promise<CachedAdminDataEntry | null> {
-  const cacheKey = sessionCacheKey()
-  if (!cacheKey) return null
-
-  return readLocalStorage(cacheKey) ?? await readCacheStorage(cacheKey)
-}
-
-export async function writeCachedAdminData(data: AdminData, version: string | null = null): Promise<void> {
-  const cacheKey = sessionCacheKey()
-  if (!cacheKey || !data.settings) return
-
-  const payload: CachedAdminDataPayload = {
+export async function writeCachedPublicData(data: PublicData, version: string | null = null): Promise<void> {
+  const key = cacheKey()
+  const payload: CachedPublicDataPayload = {
     saved_at: Date.now(),
     version,
     data,
@@ -122,7 +106,7 @@ export async function writeCachedAdminData(data: AdminData, version: string | nu
     try {
       const cache = await caches.open(CACHE_NAME)
       await cache.put(
-        cacheRequest(cacheKey),
+        cacheRequest(key),
         new Response(serialized, {
           headers: {
             'content-type': 'application/json',
@@ -137,14 +121,14 @@ export async function writeCachedAdminData(data: AdminData, version: string | nu
 
   if (canUseLocalStorage() && serialized.length <= MAX_LOCAL_STORAGE_BYTES) {
     try {
-      localStorage.setItem(`${STORAGE_PREFIX}${cacheKey}`, serialized)
+      localStorage.setItem(`${STORAGE_PREFIX}${key}`, serialized)
     } catch {
       // Quota/private mode failures should not block the app.
     }
   }
 }
 
-export async function clearCachedAdminData(): Promise<void> {
+export async function clearCachedPublicData(): Promise<void> {
   if (canUseCacheStorage()) {
     try {
       await caches.delete(CACHE_NAME)

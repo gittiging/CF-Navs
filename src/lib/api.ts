@@ -6,6 +6,7 @@ import {
   type BookmarkUpsertReq,
   type Category,
   type CategoryUpsertReq,
+  type DataVersionResp,
   type FaviconResp,
   type IconifySearchResp,
   type ImportReq,
@@ -365,6 +366,8 @@ export const settingsApi = {
 }
 
 export const dataApi = {
+  version: (auth = false) =>
+    request<DataVersionResp>('/data/version', { auth, cache: 'no-store', headers: NO_CACHE_HEADERS }),
   importAll: (payload: ImportReq) => jsonRequest<ImportResp>('/import', 'POST', payload, true),
 }
 

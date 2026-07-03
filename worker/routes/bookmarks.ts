@@ -7,6 +7,7 @@ import {
   getBookmarkIconData,
   listBookmarks,
   sortBookmarks,
+  touchDataVersion,
   updateBookmark,
 } from '../lib/db'
 import { invalidatePublicDataCache } from '../lib/cache'
@@ -83,6 +84,7 @@ bookmarksRoutes.post('/', async (c) => {
     })
     if (!bookmark) return c.json(fail(ErrCode.NOT_FOUND, 'category not found'))
 
+    await touchDataVersion(c.env.DB)
     invalidateRuntimeDataCache()
     invalidatePublicDataCache(c, c.req.url)
     return c.json(ok(bookmark))
@@ -124,6 +126,7 @@ bookmarksRoutes.put('/:id', async (c) => {
     })
     if (!bookmark) return c.json(fail(ErrCode.NOT_FOUND, 'bookmark or category not found'))
 
+    await touchDataVersion(c.env.DB)
     invalidateRuntimeDataCache()
     invalidatePublicDataCache(c, c.req.url)
     return c.json(ok(bookmark))
@@ -139,6 +142,7 @@ bookmarksRoutes.delete('/:id', async (c) => {
   try {
     const deleted = await deleteBookmark(c.env.DB, id)
     if (!deleted) return c.json(fail(ErrCode.NOT_FOUND, 'bookmark not found'))
+    await touchDataVersion(c.env.DB)
     invalidateRuntimeDataCache()
     invalidatePublicDataCache(c, c.req.url)
     return c.json(ok(null))
@@ -156,6 +160,7 @@ bookmarksRoutes.post('/sort', async (c) => {
 
   try {
     await sortBookmarks(c.env.DB, ids)
+    await touchDataVersion(c.env.DB)
     invalidateRuntimeDataCache()
     invalidatePublicDataCache(c, c.req.url)
     return c.json(ok(null))
@@ -180,13 +185,16 @@ bookmarksRoutes.post('/:id/icon-cache/refresh', async (c) => {
       ICON_CACHE_REFRESH_TIMEOUT_MS,
     )
 
-    if (iconCache.wrote) {
+    const iconBlob = iconCache.reuseExisting ? bookmark.icon_blob : iconCache.iconBlob
+
+    if (iconCache.wrote && iconBlob !== bookmark.icon_blob) {
+      await touchDataVersion(c.env.DB)
       invalidateRuntimeDataCache()
       invalidatePublicDataCache(c, c.req.url)
     }
 
     return c.json(ok({
-      icon_blob: iconCache.reuseExisting ? bookmark.icon_blob : iconCache.iconBlob,
+      icon_blob: iconBlob,
     }))
   } catch {
     return c.json(fail(ErrCode.SERVER_ERROR, 'failed to refresh bookmark icon cache'))

@@ -6,6 +6,7 @@ import {
   deleteCategory,
   listCategories,
   sortCategories,
+  touchDataVersion,
   updateCategory,
 } from '../lib/db'
 import { invalidatePublicDataCache } from '../lib/cache'
@@ -61,6 +62,7 @@ categoriesRoutes.post('/', async (c) => {
       title: body.title.trim(),
       icon: body.icon ?? null,
     })
+    await touchDataVersion(c.env.DB)
     invalidateRuntimeDataCache()
     invalidatePublicDataCache(c, c.req.url)
     return c.json(ok(category))
@@ -84,6 +86,7 @@ categoriesRoutes.put('/:id', async (c) => {
       icon: body.icon ?? null,
     })
     if (!category) return c.json(fail(ErrCode.NOT_FOUND, 'category not found'))
+    await touchDataVersion(c.env.DB)
     invalidateRuntimeDataCache()
     invalidatePublicDataCache(c, c.req.url)
     return c.json(ok(category))
@@ -99,6 +102,7 @@ categoriesRoutes.delete('/:id', async (c) => {
   try {
     const deleted = await deleteCategory(c.env.DB, id)
     if (!deleted) return c.json(fail(ErrCode.NOT_FOUND, 'category not found'))
+    await touchDataVersion(c.env.DB)
     invalidateRuntimeDataCache()
     invalidatePublicDataCache(c, c.req.url)
     return c.json(ok(null))
@@ -116,6 +120,7 @@ categoriesRoutes.post('/sort', async (c) => {
 
   try {
     await sortCategories(c.env.DB, ids)
+    await touchDataVersion(c.env.DB)
     invalidateRuntimeDataCache()
     invalidatePublicDataCache(c, c.req.url)
     return c.json(ok(null))
