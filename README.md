@@ -9,7 +9,7 @@
 
 ## 📚 导航
 
-[⚡ 快速开始](docs/QUICKSTART.md) · [🚢 部署指南](docs/DEPLOYMENT.md) · [🧩 技术细节](docs/TECHNICAL_NOTES.md) · [🔌 API 契约](docs/API_CONTRACT.md) · [🛠️ 问题排查](docs/TROUBLESHOOTING.md) · [🧪 Chrome MCP 调试](docs/CHROME_MCP_DEBUGGING.md)
+[⚡ 快速开始](docs/QUICKSTART.md) · [🚢 部署指南](docs/DEPLOYMENT.md) · [🧩 技术细节](docs/TECHNICAL_NOTES.md) · [🔌 API 契约](docs/API_CONTRACT.md) · [🛠️ 问题排查](docs/TROUBLESHOOTING.md) 
 
 ## ✨ 项目定位
 
@@ -199,7 +199,6 @@ CF-Navs/
 - [🔌 API 契约](docs/API_CONTRACT.md)：前后端接口约定。
 - [📦 Sun-Panel 导入](docs/SUNPANEL_IMPORT.md)：Sun-Panel 数据迁移指南。
 - [🛠️ 问题排查](docs/TROUBLESHOOTING.md)：登录、部署、数据保存和图标显示等常见问题。
-- [🧪 Chrome MCP 调试](docs/CHROME_MCP_DEBUGGING.md)：Codex 通过 Chrome MCP 调试前端页面的可运行流程。
 
 ## 🔐 安全提示
 
