@@ -59,10 +59,10 @@ node scripts/convert-sunpanel.cjs SunPanel-Data.json cf-navs-import.json
 1. **图标转换**：
    - HTTP/HTTPS 图标：直接使用
    - Sun-Panel 上传的图标：可转换为 favicon.im 候选地址保存
-   - Iconify 图标：识别 `mdi:home`、`simple-icons:github`、`iconify:`、`@iconify-json/*`、`@iconify-icons/*` 和 `icon-sets.iconify.design/...`，保存为标准 Iconify URL，并通过 `/api/iconify/*` 代理缓存加载
+   - Iconify 图标：识别 `mdi:home`、`simple-icons:github`、`iconify:`、`@iconify-json/*`、`@iconify-icons/*` 和 `icon-sets.iconify.design/...`，保存为标准 Iconify URL；后台预览通过 `/api/iconify/*` 代理缓存加载，首页展示优先复用浏览器本地缓存
    - 非图片图标：无法识别为 Iconify 时，导入后按现有图标候选逻辑处理
 
-   运行时普通书签图标会优先读取浏览器本地缓存和聚合数据中的 `icon_blob`；缓存缺失时首页会回退使用已保存的普通 HTTP(S) 图标 URL。编辑弹窗打开后会在后台调用短超时刷新接口更新本地图标缓存，保存书签后也会显式刷新。分类图标会通过 `/api/category-icon/:id` 代理读取，Iconify 图标始终通过 `/api/iconify/*` 代理缓存加载，非 URL 的自定义文字或表情图标会直接按文本渲染。
+   运行时普通书签图标会优先读取聚合数据中的 `icon_blob`，没有内嵌图标时才读取浏览器本地图标缓存；缓存缺失时首页会回退使用已保存的普通 HTTP(S) 图标 URL。编辑弹窗打开后会在后台调用短超时刷新接口更新本地图标缓存，保存书签后也会显式刷新。分类图标会通过 `/api/category-icon/:id` 代理读取；Iconify 图标在后台预览走 `/api/iconify/*`，首页展示优先复用浏览器本地缓存，非 URL 的自定义文字或表情图标会直接按文本渲染。
 
 2. **打开方式**：
    - Sun-Panel 的 `2`（新窗口）→ CF-Navs 的 `1`
@@ -143,7 +143,7 @@ node scripts/convert-sunpanel.cjs SunPanel-Data.json cf-navs-import.json
 **解决方法：**
 1. 编辑书签
 2. 选择文字图标、Google、Favicon.im 或 Iconify 候选
-3. 或使用图床上传图标后手动填写 URL；运行时仍会优先通过 CF-Navs 图标代理缓存展示
+3. 或使用图床上传图标后手动填写 URL；首页会优先使用聚合 `icon_blob` 和浏览器本地缓存展示，必要时回退到已保存的图标 URL
 
 ### Q: 导入后排序不对？
 

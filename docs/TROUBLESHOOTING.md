@@ -97,7 +97,7 @@ npm run deploy
 - 自定义图片 URL
 - 表情或短文字
 
-如果预览正常但保存后仍显示标题首字，请先强制刷新页面让新版 Service Worker 接管，再检查书签保存的 `icon` 是否仍是可访问的 HTTP(S) 图片地址。
+如果预览正常但保存后仍显示标题首字，请先强制刷新页面让新版 Service Worker 接管，再检查书签保存的 `icon` 是否仍是可访问的 HTTP(S) 图片地址。首页普通浏览不应出现按书签数量增长的 `/api/icon/:id` 请求；如果网络面板里仍看到这种行为，通常是旧静态资源或旧 Service Worker 还未更新。
 
 ### Iconify 图标不显示
 
@@ -109,7 +109,7 @@ simple-icons:github
 https://icon-sets.iconify.design/mdi/home/
 ```
 
-运行时请求应走 `/api/iconify/*`，不应由前台直接请求 `api.iconify.design` 或 `icon-sets.iconify.design`。
+新增/编辑弹窗和后台预览请求应走 `/api/iconify/*`；首页展示已保存的 Iconify 图标时可以直接请求 `api.iconify.design`，并由 Service Worker 和浏览器缓存复用，避免增加 Worker 请求数。
 
 ### 部署新版后图标行为仍旧
 

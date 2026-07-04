@@ -13,7 +13,7 @@ CF-Navs 支持多种图标来源：
 - 自定义文字或表情
 - 基于完整书签标题生成的本地 SVG 文字图标，长标题按字符宽度自动换行到最多 4 行
 
-新增或编辑书签时，普通 HTTP(S) 图标会通过刷新接口写入书签图标缓存。刷新接口使用短超时抓取外站图标，避免保存流程被慢速 favicon 服务长时间阻塞；抓取失败时保留已有 `icon_blob`，没有缓存则返回 `null`。首页和后台列表的普通渲染优先读取浏览器本地缓存、聚合接口返回的 `icon_blob`、data URI 或 Iconify 代理结果，首页在这些缓存都缺失时会回退到已保存的普通 HTTP(S) 图标 URL，避免可直连的 favicon 保存后变成文字图标。
+新增或编辑书签时，普通 HTTP(S) 图标会通过刷新接口写入书签图标缓存。刷新接口使用短超时抓取外站图标，避免保存流程被慢速 favicon 服务长时间阻塞；抓取失败时保留已有 `icon_blob`，没有缓存则返回 `null`。首页普通渲染优先使用聚合接口返回的 `icon_blob`，只有聚合数据没有可用图标时才读取浏览器本地图标缓存；两者都缺失时再回退到已保存的普通 HTTP(S) 图标 URL，避免可直连的 favicon 保存后变成文字图标。后台列表仍可使用同源图标代理作为管理预览入口。
 
 相关接口：
 
@@ -22,7 +22,7 @@ CF-Navs 支持多种图标来源：
 - `GET /api/category-icon/:id`
 - `GET /api/iconify/:set/:name.svg`
 
-`/api/icon/:id` 主要保留为兼容和兜底代理。它会优先读取 Cloudflare edge cache 和 D1 中的 `icon_blob`，cache miss 时再尝试抓取外站图标。普通 HTTP(S) 图标代理失败时返回错误；首页卡片优先走本地缓存和 `icon_blob`，缺失时直接回退已保存的 HTTP(S) 图标 URL，原始 URL 也加载失败后才显示文字 fallback。分类图标和 Iconify 图标失败时会返回短 TTL 的临时 SVG fallback。
+`/api/icon/:id` 主要保留为后台预览、兼容和兜底代理。它会优先读取 Cloudflare edge cache 和 D1 中的 `icon_blob`，cache miss 时再尝试抓取外站图标。首页普通书签卡片不会把 `/api/icon/:id` 按书签数量挂到 `<img>` 上；它优先使用聚合 `icon_blob`，再读本地图标缓存，缺失时直接回退已保存的 HTTP(S) 图标 URL，原始 URL 也加载失败后才显示文字 fallback。分类图标和 Iconify 图标失败时会返回短 TTL 的临时 SVG fallback。
 
 ## Iconify 规范化
 
@@ -47,7 +47,7 @@ https://api.iconify.design/{set}/{name}.svg
 - `@iconify-icons/*`
 - `https://icon-sets.iconify.design/...`
 
-这样可以避免浏览器直接请求 Iconify 外站，并让 Service Worker、浏览器本地缓存和 Cloudflare edge cache 复用同一份图标资源。
+新增/编辑弹窗和后台预览会使用同源 `/api/iconify/*` 代理，便于 Service Worker、浏览器本地缓存和 Cloudflare edge cache 复用同一份图标资源。首页展示持久化 Iconify 图标时会优先使用浏览器对 `https://api.iconify.design/*.svg` 的本地缓存，避免把每个 Iconify 书签都变成 Worker 请求；Service Worker 仍会 cache-first 处理这些 Iconify SVG。
 
 ## 首页数据读取
 
@@ -107,7 +107,7 @@ Worker 和前端共同承担缓存：
 - `/assets/*` 构建产物设置一年 immutable 缓存。
 - HTML 和 `sw.js` 使用 no-cache 重验证。
 - Service Worker 预缓存 `/index.html` 作为离线导航回退。
-- Service Worker 对图标代理和构建资源采用 cache-first 策略。
+- Service Worker 对图标代理、直接访问的 Iconify SVG 和构建资源采用 cache-first 策略。
 
 部署新版后，如果浏览器仍使用旧逻辑，可以强制刷新一次页面，让新版 Service Worker 接管。
 
@@ -124,12 +124,13 @@ Worker 和前端共同承担缓存：
 - 首页主包、登录弹窗、后台管理和书签编辑弹窗按需分包。
 - 未登录用户点击管理入口时只加载轻量登录弹窗。
 - 首页搜索会预计算书签索引，数据变化时才重建。
-- 滚动高亮使用缓存的分区 DOM 和 `requestAnimationFrame` 节流。
-- 首页图标使用浏览器原生懒加载和异步解码。
+- 滚动高亮使用缓存的分区 DOM 和 `IntersectionObserver`，不支持时才回退到节流后的布局读取。
+- 分类分区使用 `content-visibility: auto` 降低离屏渲染成本。
+- 首页图标使用共享 `IntersectionObserver` 接近视口后才设置图片 `src`，并继续启用浏览器原生懒加载和异步解码。
 - 前台主题快速切换只写浏览器本地偏好，不触发 Worker 请求。
 
 ## Sun-Panel 导入相关
 
-Sun-Panel 导入会转换分类、书签、打开方式和图标字段。Iconify 图标会尽量规范化为 CF-Navs 的标准保存格式，并在首页通过 `/api/iconify/*` 代理加载。
+Sun-Panel 导入会转换分类、书签、打开方式和图标字段。Iconify 图标会尽量规范化为 CF-Navs 的标准保存格式；后台预览使用 `/api/iconify/*` 代理，首页展示优先复用浏览器本地缓存的 Iconify SVG。
 
 更完整的迁移步骤见 [SUNPANEL_IMPORT.md](SUNPANEL_IMPORT.md)。
