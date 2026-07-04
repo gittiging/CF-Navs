@@ -30,7 +30,11 @@
   let isScrolling = false
   let searchQuery = ''
   let sectionsKey = ''
-  let scrollFrame = 0
+  let isMounted = false
+  let sectionObserver: IntersectionObserver | null = null
+  let fallbackScrollTimer: ReturnType<typeof setTimeout> | null = null
+  let usingFallbackScroll = false
+  let intersectingSectionTops = new Map<string, number>()
   let sortedCategoriesSource: PublicCategory[] | null = null
   let sortedCategoriesMemo: PublicCategory[] = []
   let sortedBookmarksSource: PublicBookmark[] | null = null
@@ -187,6 +191,7 @@
 
   function refreshSectionElements() {
     sectionElements = Array.from(document.querySelectorAll<HTMLElement>('[data-section-id]'))
+    if (isMounted) setupSectionTracking()
   }
 
   async function refreshSectionElementsAfterRender() {
@@ -195,7 +200,83 @@
     refreshSectionElements()
   }
 
-  function updateActiveSection() {
+  function getSectionId(sectionElement: Element): string {
+    return (sectionElement as HTMLElement).dataset.sectionId ?? ''
+  }
+
+  function disconnectSectionTracking() {
+    sectionObserver?.disconnect()
+    sectionObserver = null
+    intersectingSectionTops.clear()
+
+    if (typeof window !== 'undefined' && usingFallbackScroll) {
+      window.removeEventListener('scroll', handleMainScroll)
+      usingFallbackScroll = false
+    }
+
+    if (typeof window !== 'undefined' && fallbackScrollTimer) {
+      window.clearTimeout(fallbackScrollTimer)
+      fallbackScrollTimer = null
+    }
+  }
+
+  function setupSectionTracking() {
+    if (typeof window === 'undefined') return
+
+    const browserWindow = window
+    disconnectSectionTracking()
+    if (sectionElements.length === 0) return
+
+    if (typeof IntersectionObserver !== 'undefined') {
+      sectionObserver = new IntersectionObserver(handleSectionIntersections, {
+        root: null,
+        rootMargin: '-120px 0px -55% 0px',
+        threshold: [0, 0.01],
+      })
+
+      for (const sectionElement of sectionElements) {
+        sectionObserver.observe(sectionElement)
+      }
+      return
+    }
+
+    usingFallbackScroll = true
+    browserWindow.addEventListener('scroll', handleMainScroll, { passive: true })
+    updateActiveSectionFromLayout()
+  }
+
+  function handleSectionIntersections(entries: IntersectionObserverEntry[]) {
+    for (const entry of entries) {
+      const sectionId = getSectionId(entry.target)
+      if (!sectionId) continue
+
+      if (entry.isIntersecting) {
+        intersectingSectionTops.set(sectionId, Math.abs(entry.boundingClientRect.top - 120))
+      } else {
+        intersectingSectionTops.delete(sectionId)
+      }
+    }
+
+    updateActiveSectionFromIntersections()
+  }
+
+  function updateActiveSectionFromIntersections() {
+    let nextActiveId = ''
+    let nearestDistance = Number.POSITIVE_INFINITY
+
+    for (const [sectionId, distance] of intersectingSectionTops) {
+      if (distance < nearestDistance) {
+        nearestDistance = distance
+        nextActiveId = sectionId
+      }
+    }
+
+    if (nextActiveId && nextActiveId !== activeId) {
+      activeId = nextActiveId
+    }
+  }
+
+  function updateActiveSectionFromLayout() {
     const threshold = 140
     let nextActiveId = sectionElements[0]?.dataset.sectionId ?? ''
 
@@ -209,25 +290,22 @@
   }
 
   function handleMainScroll() {
-    if (isScrolling || scrollFrame) return
+    if (isScrolling || fallbackScrollTimer) return
 
-    scrollFrame = window.requestAnimationFrame(() => {
-      scrollFrame = 0
-      updateActiveSection()
-    })
+    fallbackScrollTimer = window.setTimeout(() => {
+      fallbackScrollTimer = null
+      updateActiveSectionFromLayout()
+    }, 140)
   }
 
   onMount(() => {
+    isMounted = true
     refreshSectionElements()
-    window.addEventListener('scroll', handleMainScroll)
   })
 
   onDestroy(() => {
-    window.removeEventListener('scroll', handleMainScroll)
-    if (scrollFrame) {
-      window.cancelAnimationFrame(scrollFrame)
-      scrollFrame = 0
-    }
+    isMounted = false
+    disconnectSectionTracking()
   })
 
   function handleNavigate(id: string | number) {
@@ -353,7 +431,7 @@
       {#if visibleCategories.length > 0}
         <div class="section-list">
           {#each visibleCategories as category (category.id)}
-            <div data-section-id={`category-${category.id}`}>
+            <div class="section-shell" data-section-id={`category-${category.id}`}>
               <CategorySection
                 category={category}
                 bookmarks={categoryBookmarks.get(category.id) ?? []}
@@ -415,8 +493,8 @@
     inset: 0;
     z-index: -2;
     background: var(--home-background, transparent);
-    filter: blur(var(--home-background-blur, 0px));
-    transform: scale(1.06);
+    filter: var(--home-background-filter, none);
+    transform: var(--home-background-transform, none);
   }
 
   .home-shell::after {
@@ -613,11 +691,15 @@
     text-overflow: ellipsis;
   }
 
-
   .section-list {
     display: flex;
     flex-direction: column;
     gap: 1.75rem;
+  }
+
+  .section-shell {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 420px;
   }
 
   .empty-panel {

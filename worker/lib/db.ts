@@ -126,7 +126,7 @@ const BOOKMARK_LIST_SQL =
   'SELECT id, category_id, title, url, icon, icon_source, icon_background_color, icon_blob, description, open_method, sort, created_at FROM bookmarks ORDER BY sort ASC, id ASC'
 const PUBLIC_CATEGORY_LIST_SQL = 'SELECT id, title, icon, sort FROM categories ORDER BY sort ASC, id ASC'
 const PUBLIC_BOOKMARK_LIST_SQL =
-  'SELECT id, category_id, title, url, icon, icon_source, icon_background_color, icon_blob, description, open_method, sort FROM bookmarks ORDER BY sort ASC, id ASC'
+  'SELECT id, category_id, title, url, icon, icon_source, icon_background_color, description, open_method, sort FROM bookmarks ORDER BY sort ASC, id ASC'
 const SETTINGS_LIST_SQL = 'SELECT key, value FROM settings'
 const PUBLIC_DATA_SETTINGS_LIST_SQL = `SELECT key, value FROM settings WHERE key IN (${PUBLIC_DATA_SETTINGS_KEYS
   .map((key) => `'${key}'`)

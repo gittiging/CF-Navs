@@ -23,7 +23,6 @@
   import { clearCachedAdminData, readCachedAdminDataEntry, writeCachedAdminData } from './lib/adminDataCache'
   import { colorToRgbString } from './lib/color'
   import { prepareImportPayload, type ImportSource } from './lib/importData'
-  import { createBookmarkIconCacheKey, writeBookmarkIconDataUri } from './lib/localBookmarkIconCache'
   import { clearCachedPublicData, readCachedPublicDataEntry, writeCachedPublicData } from './lib/publicDataCache'
   import { adminStore, authStore, configStore, isAuthenticated, publicStore } from './lib/stores'
 
@@ -153,6 +152,25 @@
     }))
   }
 
+  function toPublicBookmark(bookmark: Bookmark): PublicBookmark {
+    return {
+      id: bookmark.id,
+      category_id: bookmark.category_id,
+      title: bookmark.title,
+      url: bookmark.url,
+      icon: bookmark.icon,
+      icon_source: bookmark.icon_source,
+      icon_background_color: bookmark.icon_background_color,
+      description: bookmark.description,
+      open_method: bookmark.open_method,
+      sort: bookmark.sort,
+    }
+  }
+
+  function toPublicBookmarks(bookmarks: Bookmark[]): PublicBookmark[] {
+    return bookmarks.map(toPublicBookmark)
+  }
+
   type SettingsSubset = Pick<
     Settings,
     'site_title' | 'site_title_color' | 'site_title_font_size' | 'public_mode' | 'theme' | 'background_preset_id' | 'custom_css' | 'custom_js' | 'image_host_url' | 'background' | 'backgrounds' | 'search_engine' | 'card_size' | 'card_style' | 'card_icon_size' | 'card_show_description' | 'card_background_color' | 'card_background_opacity' | 'card_icon_show_title' | 'card_text_color' | 'search_box_show' | 'search_engine_selector_show' | 'content_layout' | 'footer_html'
@@ -271,6 +289,8 @@
     if (background.type === 'image' && background.value) {
       layer = `url("${background.value}") center / cover no-repeat`
     }
+    const backgroundFilter = blur > 0 ? `blur(${blur}px)` : 'none'
+    const backgroundTransform = blur > 0 ? 'scale(1.06)' : 'none'
 
     // 卡片背景色转 RGB（用于 CSS rgb() 函数）
     const cardColor = settings.card_background_color?.trim() || '#ffffff'
@@ -282,6 +302,8 @@
     return [
       `--home-background: ${layer};`,
       `--home-background-blur: ${blur}px;`,
+      `--home-background-filter: ${backgroundFilter};`,
+      `--home-background-transform: ${backgroundTransform};`,
       `--home-background-mask: ${mask};`,
       `--home-background-mask-color: ${maskColor};`,
       `--card-bg-rgb: ${cardRgb};`,
@@ -637,10 +659,11 @@
     })
 
     const updated = updatePublicDataLocally((data) => {
+      const publicBookmark = toPublicBookmark(bookmark)
       const exists = data.bookmarks.some((item) => item.id === bookmark.id)
       const bookmarks = exists
-        ? data.bookmarks.map((item) => (item.id === bookmark.id ? bookmark : item))
-        : [...data.bookmarks, bookmark]
+        ? data.bookmarks.map((item) => (item.id === bookmark.id ? publicBookmark : item))
+        : [...data.bookmarks, publicBookmark]
 
       return { ...data, bookmarks }
     })
@@ -665,29 +688,6 @@
     updateAdminBookmarksLocally((bookmarks) => bookmarks.map((bookmark) => (
       bookmark.id === bookmarkId ? { ...bookmark, icon_blob: iconBlob } : bookmark
     )))
-
-    updatePublicDataLocally((data) => ({
-      ...data,
-      bookmarks: data.bookmarks.map((bookmark) => (
-        bookmark.id === bookmarkId ? { ...bookmark, icon_blob: iconBlob } : bookmark
-      )),
-    }))
-
-    if (iconBlob?.startsWith('data:image/')) {
-      const current =
-        get(adminStore).data.bookmarks.find((bookmark) => bookmark.id === bookmarkId) ??
-        get(publicStore).data?.bookmarks.find((bookmark) => bookmark.id === bookmarkId)
-      if (current) {
-        await writeBookmarkIconDataUri(
-          createBookmarkIconCacheKey({
-            id: current.id,
-            icon: current.icon ?? '',
-            iconSource: current.icon_source,
-          }),
-          iconBlob,
-        )
-      }
-    }
 
     await persistCurrentAdminData()
   }
@@ -787,7 +787,7 @@
     applyConfigFromSettings(settings)
     applyPublicData({
       categories: mergedAdminData.categories,
-      bookmarks: mergedAdminData.bookmarks,
+      bookmarks: toPublicBookmarks(mergedAdminData.bookmarks),
       settings: toPublicSettings(settings),
     }, version)
   }

@@ -27,7 +27,7 @@ export interface Bookmark {
 }
 
 export type PublicCategory = Omit<Category, 'created_at'>
-export type PublicBookmark = Omit<Bookmark, 'created_at'>
+export type PublicBookmark = Omit<Bookmark, 'created_at' | 'icon_blob'> & { icon_blob?: string | null }
 
 // 图标获取方式
 //  direct     = 直接抓取站点 favicon（服务端解析）

@@ -1,8 +1,8 @@
 import type { PublicData } from '../../shared/types'
 
-const CACHE_NAME = 'cf-navs-public-data-v1'
+const CACHE_NAME = 'cf-navs-public-data-v2'
 const CACHE_ORIGIN = 'https://cf-navs.local'
-const STORAGE_PREFIX = 'cf-navs.public-data.'
+const STORAGE_PREFIX = 'cf-navs.public-data.v2.'
 const MAX_LOCAL_STORAGE_BYTES = 3_500_000
 
 type CachedPublicDataPayload = {
