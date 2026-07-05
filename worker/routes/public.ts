@@ -4,10 +4,10 @@ import {
   type ApiResponse,
   type DataVersionResp,
   type PublicData,
-  type PublicSettings,
   type Settings,
   type SiteConfig,
 } from '../../shared/types'
+import { toPublicSettings } from '../../shared/settings'
 import {
   cachePrivatePublicDataResponse,
   cachePublicDataResponse,
@@ -21,32 +21,6 @@ import { fail } from '../lib/response'
 import { ok } from '../lib/response'
 import { extractBearerToken, validateSession } from '../middleware/auth'
 import type { HonoEnv } from '../types'
-
-function toPublicSettings(settings: Settings): PublicSettings {
-  return {
-    site_title: settings.site_title,
-    site_title_color: settings.site_title_color,
-    site_title_font_size: settings.site_title_font_size,
-    theme: settings.theme,
-    background_preset_id: settings.background_preset_id,
-    background: settings.background,
-    backgrounds: settings.backgrounds,
-    search_engine: settings.search_engine,
-    image_host_url: settings.image_host_url,
-    card_size: settings.card_size,
-    card_style: settings.card_style,
-    card_icon_size: settings.card_icon_size,
-    card_show_description: settings.card_show_description,
-    card_background_color: settings.card_background_color,
-    card_background_opacity: settings.card_background_opacity,
-    card_icon_show_title: settings.card_icon_show_title,
-    card_text_color: settings.card_text_color,
-    search_box_show: settings.search_box_show,
-    search_engine_selector_show: settings.search_engine_selector_show,
-    content_layout: settings.content_layout,
-    footer_html: settings.footer_html,
-  }
-}
 
 function isSiteConfig(value: unknown): value is SiteConfig {
   if (!value || typeof value !== 'object') return false

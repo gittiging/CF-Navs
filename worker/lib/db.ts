@@ -12,6 +12,7 @@ import {
   type Settings,
   type SiteConfig,
 } from '../../shared/types'
+import { PUBLIC_DATA_SETTINGS_KEYS, SETTINGS_KEYS } from '../../shared/settings'
 
 // ========== settings 默认值（与 schema.sql 的默认设置保持一致） ==========
 // 用于在某个 key 缺失时回退，确保聚合出的 Settings 字段完整。
@@ -91,32 +92,6 @@ function normalizeBackgroundPresetId(value: unknown): Settings['background_prese
     : 'custom'
 }
 
-// Settings 中属于强类型聚合视图的 key（不含 admin_* 等内部 key）
-const SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[]
-const PUBLIC_DATA_SETTINGS_KEYS: (keyof Settings)[] = [
-  'site_title',
-  'site_title_color',
-  'site_title_font_size',
-  'public_mode',
-  'theme',
-  'background_preset_id',
-  'background',
-  'backgrounds',
-  'image_host_url',
-  'search_engine',
-  'card_size',
-  'card_style',
-  'card_icon_size',
-  'card_show_description',
-  'card_background_color',
-  'card_background_opacity',
-  'card_icon_show_title',
-  'card_text_color',
-  'search_box_show',
-  'search_engine_selector_show',
-  'content_layout',
-  'footer_html',
-]
 const PUBLIC_DATA_SETTINGS_WITHOUT_SITE_CONFIG_KEYS = PUBLIC_DATA_SETTINGS_KEYS.filter(
   (key) => key !== 'site_title' && key !== 'public_mode',
 )
