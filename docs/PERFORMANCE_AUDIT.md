@@ -32,3 +32,18 @@ Observed:
 
 - Consider progressive rendering or virtualization for the public bookmark grid if bookmark count grows far beyond the current 337 items.
 - Consider capping large client-side icon data URIs in localStorage and preferring Cache Storage for large icons.
+
+## 2026-07-05 Round 1
+
+Stress path: authenticated home, cold admin-data cache, full-page scroll sweep, repeated search queries, and three home/admin switches.
+
+Observed:
+
+- `/api/admin/data` stayed small after the previous optimization: about 38 KB transferred and 156 KB decoded.
+- Full scroll/search triggered about 240 same-origin icon requests.
+- Several `/api/icon/:id` requests returned 502 when the original remote icon could not be fetched.
+- Browser storage grew from about 1.4 MB to about 4.6 MB after icon-heavy interactions.
+
+Fix:
+
+- `/api/icon/:id` now returns the existing cacheable fallback SVG when the remote icon fetch fails instead of returning 502.
