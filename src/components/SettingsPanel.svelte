@@ -12,6 +12,7 @@
   import { gradientPresets, type GradientPresetId, type ThemeGradientPreset } from '../lib/themePresets'
   import ColorAlphaInput from './ColorAlphaInput.svelte'
   import GradientBackgroundInput from './GradientBackgroundInput.svelte'
+  import PasswordChangePanel from './PasswordChangePanel.svelte'
 
   type SettingsPanelValue = Pick<
     Settings,
@@ -106,12 +107,6 @@
   let form: SettingsPanelValue = cloneForm(emptyForm)
   let initialForm: SettingsPanelValue = cloneForm(emptyForm)
   let formKey = ''
-  let currentPassword = ''
-  let newPassword = ''
-  let confirmPassword = ''
-  let changingPassword = false
-  let passwordError = ''
-  let passwordMessage = ''
 
   function cloneForm(source: SettingsPanelValue): SettingsPanelValue {
     return {
@@ -472,15 +467,6 @@
     cardSizeValid &&
     contentLayoutValid &&
     isDirty
-  $: passwordMismatch = Boolean(confirmPassword) && newPassword !== confirmPassword
-  $: passwordCanSave =
-    Boolean(onChangePassword) &&
-    !saving &&
-    !changingPassword &&
-    currentPassword.length > 0 &&
-    newPassword.length >= 8 &&
-    newPassword.length <= 256 &&
-    newPassword === confirmPassword
   $: currentThemeHint = themeOptions.find((option) => option.value === form.theme)?.hint ?? ''
   $: lightBackgroundHint =
     backgroundTypeOptions.find((option) => option.value === form.backgrounds.light.type)?.hint ?? ''
@@ -519,36 +505,6 @@
     await onSubmit?.(normalizedForm)
   }
 
-  async function handleChangePassword() {
-    if (!passwordCanSave || !onChangePassword) {
-      return
-    }
-
-    changingPassword = true
-    passwordError = ''
-    passwordMessage = ''
-
-    try {
-      await onChangePassword({
-        current_password: currentPassword,
-        new_password: newPassword,
-      })
-      currentPassword = ''
-      newPassword = ''
-      confirmPassword = ''
-      passwordMessage = '密码已更新，请使用新密码重新登录。'
-    } catch (error) {
-      passwordError = error instanceof Error ? error.message : '密码更新失败'
-    } finally {
-      changingPassword = false
-    }
-  }
-
-  function handlePasswordKeydown(event: KeyboardEvent): void {
-    if (event.key !== 'Enter') return
-    event.preventDefault()
-    void handleChangePassword()
-  }
 </script>
 
 <section class="settings-panel" aria-busy={loading || saving}>
@@ -1110,66 +1066,7 @@
         {/if}
       </fieldset>
 
-      <!-- 账号安全 -->
-      <fieldset class="group group-wide" disabled={saving || changingPassword}>
-        <legend>账号安全</legend>
-        <div class="form-grid password-grid">
-          <label class="field">
-            <span>当前密码</span>
-            <input
-              bind:value={currentPassword}
-              type="password"
-              autocomplete="current-password"
-              placeholder="输入当前管理员密码"
-              on:keydown={handlePasswordKeydown}
-            />
-          </label>
-
-          <label class="field">
-            <span>新密码</span>
-            <input
-              bind:value={newPassword}
-              type="password"
-              autocomplete="new-password"
-              minlength="8"
-              maxlength="256"
-              placeholder="至少 8 个字符"
-              on:keydown={handlePasswordKeydown}
-            />
-          </label>
-
-          <label class="field">
-            <span>确认新密码</span>
-            <input
-              bind:value={confirmPassword}
-              type="password"
-              autocomplete="new-password"
-              minlength="8"
-              maxlength="256"
-              placeholder="再次输入新密码"
-              on:keydown={handlePasswordKeydown}
-            />
-          </label>
-        </div>
-
-        {#if passwordError}
-          <p class="password-message error" role="alert">{passwordError}</p>
-        {:else if passwordMessage}
-          <p class="password-message ok">{passwordMessage}</p>
-        {:else if passwordMismatch}
-          <small class="warn">两次输入的新密码不一致。</small>
-        {:else}
-          <small>修改成功后，现有登录会话会失效，需要重新登录。</small>
-        {/if}
-
-        <button type="button" class="ghost-button password-save-button" on:click={handleChangePassword} disabled={!passwordCanSave}>
-          {#if changingPassword}
-            更新中...
-          {:else}
-            更新密码
-          {/if}
-        </button>
-      </fieldset>
+      <PasswordChangePanel {saving} {onChangePassword} />
 
       <!-- 页脚 -->
       <fieldset class="group group-wide" disabled={saving}>
@@ -1584,33 +1481,6 @@
 
   .search-controls-grid .toggle-field {
     grid-column: span 4;
-  }
-
-  .password-grid .field {
-    grid-column: span 4;
-  }
-
-  .password-message {
-    border-radius: 10px;
-    padding: 9px 11px;
-    font-size: 13px;
-    line-height: 1.45;
-  }
-
-  .password-message.error {
-    border: 1px solid var(--sp-danger-border);
-    background: var(--sp-danger-bg);
-    color: var(--sp-danger);
-  }
-
-  .password-message.ok {
-    border: 1px solid var(--sp-status-border);
-    background: var(--sp-status-bg);
-    color: var(--sp-heading);
-  }
-
-  .password-save-button {
-    justify-self: start;
   }
 
   .gradient-preset-panel {
@@ -2160,8 +2030,7 @@
     .card-appearance-grid .field-color,
     .card-appearance-grid .field-range,
     .search-controls-grid .field-select,
-    .search-controls-grid .toggle-field,
-    .password-grid .field {
+    .search-controls-grid .toggle-field {
       grid-column: span 3;
     }
 
@@ -2208,8 +2077,7 @@
     .card-appearance-grid .field-color,
     .card-appearance-grid .field-range,
     .search-controls-grid .field-select,
-    .search-controls-grid .toggle-field,
-    .password-grid .field {
+    .search-controls-grid .toggle-field {
       grid-column: 1 / -1;
     }
 
