@@ -117,3 +117,17 @@ Fix:
 
 - Admin bookmark search now normalizes the query once per input state and uses a reactive category-title map for category matching.
 - Local type-check and production build passed; the deployed home regression pass still showed zero failed requests, `/api/admin/data` around 38 KB transferred, and unchanged icon request volume.
+
+## 2026-07-05 Round 7
+
+Stress path: authenticated reload followed by switching from home to the admin bookmark page.
+
+Observed:
+
+- The startup splash could remain in the DOM at the top of the document while the home shell was already rendered below it.
+- In that state, real pointer interaction with the top toolbar was blocked by the stale splash occupying the viewport.
+
+Fix:
+
+- The initial boot splash is now removed immediately when booting completes instead of using an outro fade.
+- Retest after deployment showed `app-splash` count at 0 after reload, the admin toolbar button entered the admin page, admin bookmark search worked, zero failed requests were observed, and `/api/admin/data` stayed about 38 KB transferred.

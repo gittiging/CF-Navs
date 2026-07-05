@@ -1405,7 +1405,7 @@
 </script>
 
 {#if booting}
-  <div class="app-splash" out:fade={{ duration: prefersReducedMotion ? 0 : 220 }}>
+  <div class="app-splash">
     <div class="app-splash-card app-splash-card--loading" role="status" aria-live="polite" aria-busy="true">
       <div class="app-splash-mark" aria-hidden="true">
         <span></span>
