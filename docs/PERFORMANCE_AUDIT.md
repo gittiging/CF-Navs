@@ -61,3 +61,16 @@ Fix:
 
 - Service Worker cache version bumped to `cf-navs-v13`.
 - Service Worker no longer writes bookmark icon proxy responses (`/api/icon/*` and `/api/iconify/*`) into browser Cache Storage. Category icons remain cached because the count is small.
+
+## 2026-07-05 Round 3
+
+Stress path: rapid search input across the full 337-bookmark home list.
+
+Observed:
+
+- Each keystroke immediately recomputed the search filter and rebuilt the visible category/bookmark DOM.
+- Clearing a restrictive search rebuilt the full list back to about 2,700 DOM nodes in one input turn.
+
+Fix:
+
+- Home list filtering now uses a 120 ms deferred query. The search box value remains immediate for the external search action, while local list filtering coalesces rapid keystrokes into one render.

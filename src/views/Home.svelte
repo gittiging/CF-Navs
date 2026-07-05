@@ -6,6 +6,7 @@
   import type { PublicBookmark, PublicCategory, PublicSettings } from '../../shared/types'
 
   type AsyncVoid<T = void> = T | Promise<T>
+  const SEARCH_FILTER_DEBOUNCE_MS = 120
 
   export let categories: PublicCategory[] = []
   export let bookmarks: PublicBookmark[] = []
@@ -33,6 +34,7 @@
   let isMounted = false
   let sectionObserver: IntersectionObserver | null = null
   let fallbackScrollTimer: ReturnType<typeof setTimeout> | null = null
+  let searchFilterTimer: ReturnType<typeof setTimeout> | null = null
   let usingFallbackScroll = false
   let intersectingSectionTops = new Map<string, number>()
   let sortedCategoriesSource: PublicCategory[] | null = null
@@ -44,10 +46,14 @@
   let searchIndexBookmarksSource: PublicBookmark[] | null = null
   let searchIndexCategoriesSource: PublicCategory[] | null = null
   let searchIndexMemo = new Map<number, string>()
+  let deferredSearchQuery = ''
 
   $: sortedCategories = getSortedCategories(categories)
   $: sortedBookmarks = getSortedBookmarks(bookmarks)
-  $: normalizedSearchQuery = normalizeSearchQuery(searchQuery)
+  $: if (searchQuery !== deferredSearchQuery) {
+    scheduleSearchFilterUpdate(searchQuery)
+  }
+  $: normalizedSearchQuery = normalizeSearchQuery(deferredSearchQuery)
   $: hasSearchQuery = normalizedSearchQuery.length > 0
   $: categoryTitleById = getCategoryTitleMap(sortedCategories)
   $: searchTextByBookmarkId = getSearchIndex(sortedBookmarks, sortedCategories, categoryTitleById)
@@ -119,6 +125,22 @@
 
   function normalizeSearchQuery(value: string): string {
     return value.trim().toLowerCase()
+  }
+
+  function scheduleSearchFilterUpdate(value: string) {
+    if (typeof window === 'undefined') {
+      deferredSearchQuery = value
+      return
+    }
+
+    if (searchFilterTimer) {
+      window.clearTimeout(searchFilterTimer)
+    }
+
+    searchFilterTimer = window.setTimeout(() => {
+      searchFilterTimer = null
+      deferredSearchQuery = value
+    }, SEARCH_FILTER_DEBOUNCE_MS)
   }
 
   function getSortedCategories(items: PublicCategory[]): PublicCategory[] {
@@ -306,6 +328,10 @@
   onDestroy(() => {
     isMounted = false
     disconnectSectionTracking()
+    if (typeof window !== 'undefined' && searchFilterTimer) {
+      window.clearTimeout(searchFilterTimer)
+      searchFilterTimer = null
+    }
   })
 
   function handleNavigate(id: string | number) {
