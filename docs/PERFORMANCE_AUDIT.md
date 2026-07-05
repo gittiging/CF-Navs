@@ -74,3 +74,18 @@ Observed:
 Fix:
 
 - Home list filtering now uses a 120 ms deferred query. The search box value remains immediate for the external search action, while local list filtering coalesces rapid keystrokes into one render.
+
+## 2026-07-05 Round 4
+
+Stress path: authenticated home reload, full-page scroll sweep, and icon-heavy viewport changes.
+
+Observed:
+
+- The home page renders 337 bookmark images after the full scroll sweep.
+- Bookmark icon images did not declare intrinsic dimensions, so the browser had less information for image scheduling and layout reservation.
+- Full scroll still produced the expected icon request volume without 4xx/5xx responses; `/api/admin/data` remained about 38 KB transferred.
+
+Fix:
+
+- Bookmark icon images now declare explicit `width` and `height` attributes and use `fetchpriority="low"` alongside existing lazy loading and async decoding.
+- Retest showed all 337 icon images had the low-priority hint and fixed dimensions, zero broken images, no failed requests, and Cache Storage remained under 1 MB.

@@ -400,8 +400,11 @@
           <img
             src={iconUrl}
             alt={bookmark.title}
+            width={infoIconSize}
+            height={infoIconSize}
             loading="lazy"
             decoding="async"
+            fetchpriority="low"
             on:error={handleIconError}
             on:load={handleIconLoad}
           />
@@ -440,8 +443,11 @@
           <img
             src={iconUrl}
             alt={bookmark.title}
+            width={compactIconSize}
+            height={compactIconSize}
             loading="lazy"
             decoding="async"
+            fetchpriority="low"
             on:error={handleIconError}
             on:load={handleIconLoad}
           />
