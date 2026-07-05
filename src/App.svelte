@@ -9,6 +9,7 @@
     type BookmarkUpsertReq,
     type Category,
     type CategoryUpsertReq,
+    type ChangePasswordReq,
     type IconSource,
     type PublicBookmark,
     type PublicData,
@@ -1263,6 +1264,22 @@
     }
   }
 
+  async function handleChangePassword(payload: ChangePasswordReq): Promise<void> {
+    rootError = ''
+
+    await api.auth.changePassword(payload)
+    authStore.setSession(null)
+    resetCategoryState()
+    resetSettingsState()
+    resetBookmarkState()
+    adminStore.reset()
+    await clearCachedAdminData()
+    rootError = '管理员密码已更新，请使用新密码重新登录。'
+    await ensureLoginModalComponent()
+    loginModalOpen = true
+    currentView = 'login'
+  }
+
   async function handleSortCategories(ids: Array<string | number>): Promise<void> {
     categoryError = ''
 
@@ -1516,6 +1533,7 @@
         onEditBookmark={handleEditBookmark}
         onDeleteBookmark={handleDeleteBookmark}
         onSubmitSettings={handleSubmitSettings}
+        onChangePassword={handleChangePassword}
         onSortCategories={handleSortCategories}
         onSortBookmarks={handleSortBookmarks}
         importing={importing}

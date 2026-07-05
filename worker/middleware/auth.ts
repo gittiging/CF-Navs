@@ -57,6 +57,20 @@ export function clearCachedSession(token: string): void {
   sessionMemoryCache.delete(token)
 }
 
+export function clearAllCachedSessions(): void {
+  sessionMemoryCache.clear()
+}
+
+export async function clearAllSessions(env: Env): Promise<void> {
+  let cursor: string | undefined
+
+  do {
+    const page = await env.SESSION.list({ prefix: SESSION_PREFIX, cursor })
+    await Promise.all(page.keys.map((key) => env.SESSION.delete(key.name)))
+    cursor = page.list_complete ? undefined : page.cursor
+  } while (cursor)
+}
+
 export async function validateSession(env: Env, token: string): Promise<SessionValue | null> {
   const now = Date.now()
   const cached = sessionMemoryCache.get(token)

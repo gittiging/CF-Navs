@@ -40,7 +40,7 @@
 </script>
 
 <script lang="ts">
-  import type { Settings } from '../../shared/types'
+  import type { ChangePasswordReq, Settings } from '../../shared/types'
   import type { ImportSource } from '../lib/importData'
   import { iconifyProxyIcon, isIconifyIconUrl } from '../lib/icons'
   import { sortableList, type SortHandler } from '../lib/sortableList'
@@ -178,6 +178,7 @@
         >,
       ) => AsyncVoid)
     | undefined = undefined
+  export let onChangePassword: ((payload: ChangePasswordReq) => AsyncVoid) | undefined = undefined
   export let onSortCategories: SortHandler | undefined = undefined
   export let onSortBookmarks: SortHandler | undefined = undefined
 
@@ -798,6 +799,7 @@
         saving={settingsSaving}
         error={settingsError}
         onSubmit={onSubmitSettings}
+        onChangePassword={onChangePassword}
       />
     {:else}
       <section class="panel">

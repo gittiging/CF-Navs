@@ -236,8 +236,15 @@ npm run db:init:remote
 ### 登录失败
 
 **密码错误**
-- 重新设置密码：`npx wrangler secret put INIT_ADMIN_PASSWORD`
-- 等待几分钟让 secret 生效
+- 如果仍能登录后台：进入 **站点设置 → 账号安全**，用当前密码更新管理员密码。
+- 如果已经无法登录：`INIT_ADMIN_PASSWORD` 只用于首次初始化，不会自动覆盖 D1 中已保存的 `admin_password`。确认当前 Wrangler 指向正确项目后，可重新设置 secret 并清除已保存密码，让系统重新初始化：
+
+```bash
+npx wrangler secret put INIT_ADMIN_PASSWORD
+npx wrangler d1 execute cf-navs-db --remote --command "DELETE FROM settings WHERE key = 'admin_password'"
+```
+
+- 修改或重置密码后，已有登录会话会失效，需要重新登录。
 
 **KV 错误**
 - 检查 KV 命名空间是否正确绑定

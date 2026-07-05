@@ -154,6 +154,12 @@ export interface LoginResp {
   username: string
 }
 
+// POST /api/password
+export interface ChangePasswordReq {
+  current_password: string
+  new_password: string
+}
+
 // GET /api/public/data  （公开只读聚合）
 export interface PublicData {
   categories: PublicCategory[]

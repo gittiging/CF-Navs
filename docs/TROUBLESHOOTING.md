@@ -32,13 +32,16 @@ npm run db:init:remote
 
 ### 密码错误
 
-重新设置管理员密码：
+如果仍能登录后台，进入 **站点设置 → 账号安全**，输入当前密码后更新管理员密码。修改成功后，现有登录会话会失效，需要使用新密码重新登录。
+
+如果已经无法登录，单独重新设置 `INIT_ADMIN_PASSWORD` 不会覆盖数据库中已经初始化过的管理员密码。需要先确认当前环境和数据库，再用 D1 管理语句清除已保存的 `admin_password`，随后重新部署或访问站点，让系统用新的 `INIT_ADMIN_PASSWORD` 重新初始化密码：
 
 ```bash
 npx wrangler secret put INIT_ADMIN_PASSWORD
+npx wrangler d1 execute cf-navs-db --remote --command "DELETE FROM settings WHERE key = 'admin_password'"
 ```
 
-Cloudflare Secret 生效可能需要等待片刻。设置后再次访问站点登录。
+Cloudflare Secret 生效可能需要等待片刻。执行清除命令前请确认 Wrangler 指向的是正确的 Cloudflare 账号、Worker 和 D1 数据库。
 
 ### KV 相关错误
 

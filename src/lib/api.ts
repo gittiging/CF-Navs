@@ -6,6 +6,7 @@ import {
   type BookmarkUpsertReq,
   type Category,
   type CategoryUpsertReq,
+  type ChangePasswordReq,
   type DataVersionResp,
   type FaviconResp,
   type IconifySearchResp,
@@ -333,6 +334,7 @@ export const adminApi = {
 
 export const authApi = {
   login: (payload: LoginReq) => jsonRequest<LoginResp>('/login', 'POST', payload),
+  changePassword: (payload: ChangePasswordReq) => jsonRequest<null>('/password', 'POST', payload, true),
   logout: () => jsonRequest<null>('/logout', 'POST', undefined, true),
   me: () => request<MeResp>('/me', { auth: true }),
 }
