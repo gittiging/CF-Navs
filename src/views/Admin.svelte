@@ -18,7 +18,9 @@
   import type { ImportSource } from '../lib/importData'
   import type { SettingsFormValue } from '../lib/appData'
   import type { AdminTab } from '../lib/adminTypes'
-  import { iconifyProxyIcon, isIconifyIconUrl } from '../lib/icons'
+  import { getBookmarkFallbackIcon, getBookmarkIconUrl, hasBookmarkImageIcon } from '../lib/bookmarkIconDisplay'
+  import { clampPage, pageCount, pageEnd, pageStart, slicePage } from '../lib/pagination'
+  import { reorderByIds } from '../lib/reorder'
   import { sortableList, type SortHandler } from '../lib/sortableList'
   import CachedBookmarkIcon from '../components/CachedBookmarkIcon.svelte'
 
@@ -28,7 +30,6 @@
   }
 
   type AsyncVoid<T = void> = T | Promise<T>
-  const PAGE_SIZE = 10
 
   export let isAuthenticated = false
   export let authLoading = false
@@ -150,10 +151,7 @@
   }
 
   function handleReorderCategories(orderedIds: Array<string | number>) {
-    const byId = new Map(localCategories.map((item) => [String(item.id), item]))
-    localCategories = orderedIds
-      .map((id) => byId.get(String(id)))
-      .filter((item): item is AdminCategory => Boolean(item))
+    localCategories = reorderByIds(localCategories, orderedIds)
   }
 
   async function saveCategorySort() {
@@ -185,10 +183,7 @@
   }
 
   function handleReorderBookmarks(orderedIds: Array<string | number>) {
-    const byId = new Map(localBookmarks.map((item) => [String(item.id), item]))
-    localBookmarks = orderedIds
-      .map((id) => byId.get(String(id)))
-      .filter((item): item is AdminBookmark => Boolean(item))
+    localBookmarks = reorderByIds(localBookmarks, orderedIds)
   }
 
   async function saveBookmarkSort() {
@@ -212,82 +207,7 @@
   const getBookmarksByCategory = (categoryId: string | number) =>
     bookmarks.filter((bookmark) => bookmark.category_id === categoryId)
 
-  function createIconVersion(input: string): string {
-    let hash = 0
-    for (let i = 0; i < input.length; i += 1) {
-      hash = Math.imul(31, hash) + input.charCodeAt(i) | 0
-    }
-    return Math.abs(hash).toString(36)
-  }
-
-  function getBookmarkIconUrl(bookmark: AdminBookmark): string {
-    const icon = bookmark.icon ?? ''
-    const cachedIcon = bookmark.icon_blob ?? ''
-    if (/^data:image\//i.test(cachedIcon)) return cachedIcon
-    const iconifyUrl =
-      bookmark.icon_source === 'iconify' || isIconifyIconUrl(icon)
-        ? iconifyProxyIcon(icon)
-        : ''
-    if (iconifyUrl) return iconifyUrl
-    if (/^data:image\//i.test(icon)) return icon
-    if (/^https?:\/\//i.test(icon)) {
-      return `/api/icon/${bookmark.id}?v=${createIconVersion(`${bookmark.id}:${icon}:${bookmark.title}:${bookmark.url}`)}`
-    }
-    if (bookmark.icon_cached) {
-      return `/api/icon/${bookmark.id}?v=${createIconVersion(`${bookmark.id}:${bookmark.title}:${bookmark.url}:cached`)}`
-    }
-    return icon
-  }
-
-  function hasBookmarkImageIcon(bookmark: AdminBookmark): boolean {
-    const icon = bookmark.icon ?? ''
-    const cachedIcon = bookmark.icon_blob ?? ''
-    return Boolean(
-      getBookmarkIconUrl(bookmark) &&
-      (
-        /^data:image\//i.test(cachedIcon) ||
-        /^data:image\//i.test(icon) ||
-        /^https?:\/\//i.test(icon) ||
-        Boolean(bookmark.icon_cached) ||
-        bookmark.icon_source === 'iconify' ||
-        isIconifyIconUrl(icon)
-      ),
-    )
-  }
-
-  function getBookmarkFallbackIcon(bookmark: AdminBookmark): string {
-    const icon = bookmark.icon ?? ''
-    if (/^https?:\/\//i.test(icon) || /^data:image\//i.test(icon) || isIconifyIconUrl(icon)) {
-      return '🔖'
-    }
-    return icon || '🔖'
-  }
-
   let bookmarkSearch = ''
-
-  function pageCount(total: number): number {
-    return Math.max(1, Math.ceil(total / PAGE_SIZE))
-  }
-
-  function clampPage(page: number, totalPages: number): number {
-    if (!Number.isFinite(page)) return 1
-    return Math.min(Math.max(1, Math.trunc(page)), totalPages)
-  }
-
-  function slicePage<T>(items: T[], page: number): T[] {
-    const start = (clampPage(page, pageCount(items.length)) - 1) * PAGE_SIZE
-    return items.slice(start, start + PAGE_SIZE)
-  }
-
-  function pageStart(page: number, total: number): number {
-    if (total === 0) return 0
-    return (clampPage(page, pageCount(total)) - 1) * PAGE_SIZE + 1
-  }
-
-  function pageEnd(page: number, total: number): number {
-    if (total === 0) return 0
-    return Math.min(clampPage(page, pageCount(total)) * PAGE_SIZE, total)
-  }
 
   function handleBookmarkSearchInput(event: Event) {
     bookmarkSearch = (event.currentTarget as HTMLInputElement).value

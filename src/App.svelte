@@ -3,25 +3,20 @@
   import { get } from 'svelte/store'
   import { fade } from 'svelte/transition'
   import {
-    ErrCode,
     type AdminData,
     type Bookmark,
-    type BookmarkUpsertReq,
     type Category,
-    type CategoryUpsertReq,
     type ChangePasswordReq,
-    type IconSource,
-    type PublicBookmark,
     type PublicData,
     type Settings,
-    type SiteConfig,
     type ThemeMode,
   } from '../shared/types'
   import ConfirmDialog from './components/ConfirmDialog.svelte'
   import Home from './views/Home.svelte'
-  import { api, getErrorMessage, isApiError, isUnauthorizedError } from './lib/api'
+  import { api, getErrorMessage, isUnauthorizedError } from './lib/api'
   import { clearCachedAdminData, readCachedAdminDataEntry, writeCachedAdminData } from './lib/adminDataCache'
   import type { BookmarkFormValue, CategoryFormValue } from './lib/adminTypes'
+  import { toBookmarkForm, toBookmarkPayload, toCategoryForm, toCategoryPayload } from './lib/adminFormAdapters'
   import {
     adminDataToPublicData,
     buildHomeBackground,
@@ -39,16 +34,17 @@
   } from './lib/appData'
   import type { ImportSource } from './lib/importData'
   import { clearCachedPublicData, readCachedPublicDataEntry, writeCachedPublicData } from './lib/publicDataCache'
+  import { isPublicModeForbidden, siteConfigFromForbiddenError } from './lib/publicMode'
   import {
     createBookmarkIconCacheKey,
     pruneBookmarkIconCacheStorageBackedByLocalStorage,
     writeBookmarkIconDataUri,
   } from './lib/localBookmarkIconCache'
   import { adminStore, authStore, configStore, isAuthenticated, publicStore } from './lib/stores'
+  import { readPreferredThemeMode, writePreferredThemeMode } from './lib/themePreference'
 
   type AppView = 'home' | 'admin' | 'login'
 
-  const THEME_STORAGE_KEY = 'cf-navs.theme-mode'
   type SettingsSubset = SettingsFormValue
 
   type ConfirmDialogState = {
@@ -123,26 +119,6 @@
     })
   }
 
-  function isPublicModeForbidden(error: unknown): boolean {
-    return isApiError(error) && error.code === ErrCode.FORBIDDEN
-  }
-
-  function siteConfigFromForbiddenError(error: unknown): SiteConfig | null {
-    if (!isApiError(error) || !error.data || typeof error.data !== 'object') {
-      return null
-    }
-
-    const data = error.data as Partial<SiteConfig>
-    if (typeof data.site_title === 'string' && data.public_mode === false) {
-      return {
-        site_title: data.site_title,
-        public_mode: false,
-      }
-    }
-
-    return null
-  }
-
   $: adminCategories = toAdminCategories(adminData.categories, adminData.bookmarks)
   $: adminBookmarks = toAdminBookmarks(adminData.bookmarks)
   $: settingsValue = toSettingsForm(adminData.settings)
@@ -171,17 +147,9 @@
     return Boolean(get(authStore).session)
   }
 
-  function readPreferredThemeMode(): ThemeMode | null {
-    if (typeof localStorage === 'undefined') return null
-    const stored = localStorage.getItem(THEME_STORAGE_KEY)
-    return stored === 'light' || stored === 'dark' || stored === 'auto' ? stored : null
-  }
-
-  function writePreferredThemeMode(mode: ThemeMode): void {
+  function setPreferredThemeMode(mode: ThemeMode): void {
     preferredThemeMode = mode
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(THEME_STORAGE_KEY, mode)
-    }
+    writePreferredThemeMode(mode)
   }
 
   function scheduleBookmarkIconCachePrune(): void {
@@ -203,7 +171,7 @@
   }
 
   function handleToggleTheme(): void {
-    writePreferredThemeMode(activeTheme === 'dark' ? 'light' : 'dark')
+    setPreferredThemeMode(activeTheme === 'dark' ? 'light' : 'dark')
   }
 
   function ensureAdminComponent(): Promise<void> {
@@ -707,48 +675,6 @@
     activeBookmark = null
     bookmarkError = ''
     savingBookmark = false
-  }
-
-  function toCategoryPayload(form: CategoryFormValue): CategoryUpsertReq {
-    return {
-      title: form.title.trim(),
-      icon: form.icon.trim() || null,
-    }
-  }
-
-  function toBookmarkPayload(form: BookmarkFormValue): BookmarkUpsertReq {
-    return {
-      category_id: Number(form.category_id),
-      title: form.title.trim(),
-      url: form.url.trim(),
-      icon: form.icon.trim() || null,
-      icon_source: (form.icon_source as IconSource) || null,
-      icon_background_color: form.icon_background_color.trim() || null,
-      description: form.description.trim() || null,
-      open_method: form.open_method === 'same_tab' ? 2 : form.open_method === 'modal' ? 3 : 1,
-    }
-  }
-
-  function toCategoryForm(category: Category): CategoryFormValue {
-    return {
-      id: category.id,
-      title: category.title,
-      icon: category.icon ?? '',
-    }
-  }
-
-  function toBookmarkForm(bookmark: PublicBookmark): BookmarkFormValue {
-    return {
-      id: bookmark.id,
-      category_id: bookmark.category_id,
-      title: bookmark.title,
-      url: bookmark.url,
-      icon: bookmark.icon ?? '',
-      icon_source: bookmark.icon_source ?? '',
-      icon_background_color: bookmark.icon_background_color ?? '',
-      description: bookmark.description ?? '',
-      open_method: bookmark.open_method === 2 ? 'same_tab' : bookmark.open_method === 3 ? 'modal' : 'new_tab',
-    }
   }
 
   async function handleOpenLogin(): Promise<void> {

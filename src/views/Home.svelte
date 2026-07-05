@@ -4,9 +4,19 @@
   import Sidebar from '../components/Sidebar.svelte'
   import CategorySection from '../components/CategorySection.svelte'
   import type { PublicBookmark, PublicCategory, PublicSettings } from '../../shared/types'
+  import {
+    bookmarkMatchesSearch,
+    clampTitleFontSize,
+    createHomeDataMemo,
+    getHomeSections,
+    getVisibleCategoryIds,
+    groupBookmarksByCategory,
+    normalizeSearchQuery,
+  } from '../lib/homeData'
 
   type AsyncVoid<T = void> = T | Promise<T>
   const SEARCH_FILTER_DEBOUNCE_MS = 120
+  const homeData = createHomeDataMemo()
 
   export let categories: PublicCategory[] = []
   export let bookmarks: PublicBookmark[] = []
@@ -37,26 +47,17 @@
   let searchFilterTimer: ReturnType<typeof setTimeout> | null = null
   let usingFallbackScroll = false
   let intersectingSectionTops = new Map<string, number>()
-  let sortedCategoriesSource: PublicCategory[] | null = null
-  let sortedCategoriesMemo: PublicCategory[] = []
-  let sortedBookmarksSource: PublicBookmark[] | null = null
-  let sortedBookmarksMemo: PublicBookmark[] = []
-  let categoryTitleSource: PublicCategory[] | null = null
-  let categoryTitleMemo = new Map<number, string>()
-  let searchIndexBookmarksSource: PublicBookmark[] | null = null
-  let searchIndexCategoriesSource: PublicCategory[] | null = null
-  let searchIndexMemo = new Map<number, string>()
   let deferredSearchQuery = ''
 
-  $: sortedCategories = getSortedCategories(categories)
-  $: sortedBookmarks = getSortedBookmarks(bookmarks)
+  $: sortedCategories = homeData.getSortedCategories(categories)
+  $: sortedBookmarks = homeData.getSortedBookmarks(bookmarks)
   $: if (searchQuery !== deferredSearchQuery) {
     scheduleSearchFilterUpdate(searchQuery)
   }
   $: normalizedSearchQuery = normalizeSearchQuery(deferredSearchQuery)
   $: hasSearchQuery = normalizedSearchQuery.length > 0
-  $: categoryTitleById = getCategoryTitleMap(sortedCategories)
-  $: searchTextByBookmarkId = getSearchIndex(sortedBookmarks, sortedCategories, categoryTitleById)
+  $: categoryTitleById = homeData.getCategoryTitleMap(sortedCategories)
+  $: searchTextByBookmarkId = homeData.getSearchIndex(sortedBookmarks, sortedCategories, categoryTitleById)
   $: visibleBookmarks = hasSearchQuery
     ? sortedBookmarks.filter((bookmark) => bookmarkMatchesSearch(bookmark, normalizedSearchQuery, searchTextByBookmarkId))
     : sortedBookmarks
@@ -65,23 +66,8 @@
     ? sortedCategories.filter((category) => visibleCategoryIds?.has(category.id))
     : sortedCategories
 
-  $: {
-    const nextCategoryBookmarks = new Map<number, PublicBookmark[]>()
-
-    for (const bookmark of visibleBookmarks) {
-      const list = nextCategoryBookmarks.get(bookmark.category_id) ?? []
-      list.push(bookmark)
-      nextCategoryBookmarks.set(bookmark.category_id, list)
-    }
-
-    categoryBookmarks = nextCategoryBookmarks
-  }
-
-  $: sections = visibleCategories.map((category) => ({
-    id: `category-${category.id}`,
-    title: category.title,
-    count: categoryBookmarks.get(category.id)?.length ?? 0,
-  }))
+  $: categoryBookmarks = groupBookmarksByCategory(visibleBookmarks)
+  $: sections = getHomeSections(visibleCategories, categoryBookmarks)
   $: nextSectionsKey = sections.map((section) => section.id).join('|')
   $: if (nextSectionsKey !== sectionsKey) {
     sectionsKey = nextSectionsKey
@@ -118,15 +104,6 @@
     activeId = sections[0]?.id ?? ''
   }
 
-  function clampTitleFontSize(value: number | undefined): number {
-    if (!Number.isFinite(value)) return 32
-    return Math.min(72, Math.max(16, Number(value)))
-  }
-
-  function normalizeSearchQuery(value: string): string {
-    return value.trim().toLowerCase()
-  }
-
   function scheduleSearchFilterUpdate(value: string) {
     if (typeof window === 'undefined') {
       deferredSearchQuery = value
@@ -141,82 +118,6 @@
       searchFilterTimer = null
       deferredSearchQuery = value
     }, SEARCH_FILTER_DEBOUNCE_MS)
-  }
-
-  function getSortedCategories(items: PublicCategory[]): PublicCategory[] {
-    if (items === sortedCategoriesSource) return sortedCategoriesMemo
-
-    sortedCategoriesSource = items
-    sortedCategoriesMemo = [...items].sort((a, b) => a.sort - b.sort)
-    return sortedCategoriesMemo
-  }
-
-  function getSortedBookmarks(items: PublicBookmark[]): PublicBookmark[] {
-    if (items === sortedBookmarksSource) return sortedBookmarksMemo
-
-    sortedBookmarksSource = items
-    sortedBookmarksMemo = [...items].sort((a, b) => a.sort - b.sort)
-    return sortedBookmarksMemo
-  }
-
-  function getCategoryTitleMap(items: PublicCategory[]): Map<number, string> {
-    if (items === categoryTitleSource) return categoryTitleMemo
-
-    categoryTitleSource = items
-    categoryTitleMemo = new Map(items.map((category) => [category.id, category.title]))
-    return categoryTitleMemo
-  }
-
-  function getSearchIndex(
-    items: PublicBookmark[],
-    categoryItems: PublicCategory[],
-    categoryTitles: Map<number, string>,
-  ): Map<number, string> {
-    if (items === searchIndexBookmarksSource && categoryItems === searchIndexCategoriesSource) {
-      return searchIndexMemo
-    }
-
-    searchIndexBookmarksSource = items
-    searchIndexCategoriesSource = categoryItems
-    searchIndexMemo = buildSearchIndex(items, categoryTitles)
-    return searchIndexMemo
-  }
-
-  function buildSearchIndex(
-    items: PublicBookmark[],
-    categoryTitles: Map<number, string>,
-  ): Map<number, string> {
-    const nextIndex = new Map<number, string>()
-
-    for (const bookmark of items) {
-      nextIndex.set(
-        bookmark.id,
-        [
-          bookmark.title,
-          bookmark.url,
-          bookmark.description ?? '',
-          categoryTitles.get(bookmark.category_id) ?? '',
-        ].join('\n').toLowerCase(),
-      )
-    }
-
-    return nextIndex
-  }
-
-  function bookmarkMatchesSearch(
-    bookmark: PublicBookmark,
-    keyword: string,
-    searchIndex: Map<number, string>,
-  ): boolean {
-    return (searchIndex.get(bookmark.id) ?? '').includes(keyword)
-  }
-
-  function getVisibleCategoryIds(items: PublicBookmark[]): Set<number> {
-    const ids = new Set<number>()
-    for (const bookmark of items) {
-      ids.add(bookmark.category_id)
-    }
-    return ids
   }
 
   function refreshSectionElements() {

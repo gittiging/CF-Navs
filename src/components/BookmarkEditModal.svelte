@@ -2,7 +2,6 @@
   import { onDestroy } from 'svelte'
   import {
     DEFAULT_LOGO_SURF_SCHEME,
-    LOGO_SURF_COLOR_SCHEMES,
     getIconCandidates,
     iconifyIcon,
     iconifyNameFromUrl,
@@ -14,22 +13,28 @@
   } from '../lib/icons'
   import { getErrorMessage, iconifyApi } from '../lib/api'
   import type { BookmarkFormValue } from '../lib/adminTypes'
+  import {
+    buildBookmarkSubmitPayload,
+    canPreviewIcon,
+    canPreviewIconAsImage,
+    createBookmarkFormValue,
+    emptyBookmarkForm,
+    findLogoSchemeName,
+    getCandidatePreviewUrl,
+    getFormIconPreviewUrl,
+    getIconifySearchQuery,
+    getLogoSchemeByName,
+    getTextIconPreview,
+    isCandidateSelected,
+  } from '../lib/bookmarkFormIcons'
   import ColorAlphaInput from './ColorAlphaInput.svelte'
+  import IconifySelector from './IconifySelector.svelte'
+  import LogoSchemeSelector from './LogoSchemeSelector.svelte'
   import type { IconifyCandidate as IconifySearchCandidate } from '../../shared/types'
 
   type BookmarkCategoryOption = {
     id: string | number
     title: string
-  }
-
-  const emptyForm: BookmarkFormValue = {
-    title: '',
-    url: '',
-    icon: '',
-    icon_source: '',
-    icon_background_color: '',
-    description: '',
-    open_method: 'new_tab',
   }
 
   export let open = false
@@ -44,7 +49,7 @@
   export let deleting = false
   export let imageHostUrl = ''
 
-  let form: BookmarkFormValue = { ...emptyForm }
+  let form: BookmarkFormValue = { ...emptyBookmarkForm }
   let formKey = ''
   let faviconError = ''
   let selectedLogoSchemeName = DEFAULT_LOGO_SURF_SCHEME.name
@@ -71,18 +76,7 @@
     faviconError = ''
     candidateError = ''
     const fallbackCategoryId = categories[0]?.id
-    form = {
-      ...emptyForm,
-      ...(value ?? {}),
-      category_id: value?.category_id ?? fallbackCategoryId,
-      title: value?.title ?? '',
-      url: value?.url ?? '',
-      icon: value?.icon ?? '',
-      icon_source: (value as Partial<BookmarkFormValue>)?.icon_source ?? '',
-      icon_background_color: value?.icon_background_color ?? '',
-      description: value?.description ?? '',
-      open_method: value?.open_method ?? 'new_tab',
-    }
+    form = createBookmarkFormValue(value, fallbackCategoryId)
     selectedLogoSchemeName = findLogoSchemeName(form.icon) ?? DEFAULT_LOGO_SURF_SCHEME.name
     iconifyName = form.icon_source === 'iconify' ? iconifyNameFromUrl(form.icon) ?? '' : ''
     iconifyUseConfirmed = mode === 'edit' && form.icon_source === 'iconify' && Boolean(iconifyName)
@@ -128,21 +122,6 @@
   }
   $: if (form.icon_source === 'iconify' && normalizedIconifyName && form.icon !== iconifySourceUrl) {
     form.icon = iconifySourceUrl
-  }
-
-  function getIconifySearchQuery(value: string): string {
-    const normalized = normalizeIconifyName(value)
-    if (normalized) return normalized
-
-    const plain = value
-      .trim()
-      .toLowerCase()
-      .replace(/^iconify:/, '')
-      .replace(/^@iconify-json\//, '')
-      .replace(/^@iconify-icons\//, '')
-      .replace(/[^a-z0-9-]/g, '')
-
-    return plain.length >= 2 && plain.length <= 80 ? plain : ''
   }
 
   function clearIconifySearchTimer() {
@@ -193,28 +172,6 @@
     }
   }
 
-  function getLogoSchemeByName(name: string): LogoSurfColorScheme {
-    return LOGO_SURF_COLOR_SCHEMES.find((scheme) => scheme.name === name) ?? DEFAULT_LOGO_SURF_SCHEME
-  }
-
-  function findLogoSchemeName(icon: string): string | null {
-    if (!icon.startsWith('data:image/svg+xml')) return null
-
-    let decoded = icon
-    try {
-      decoded = decodeURIComponent(icon)
-    } catch {
-      decoded = icon
-    }
-
-    const normalized = decoded.toLowerCase()
-    const match = LOGO_SURF_COLOR_SCHEMES.find((scheme) => {
-      return normalized.includes(scheme.bgColor.toLowerCase()) && normalized.includes(scheme.textColor.toLowerCase())
-    })
-
-    return match?.name ?? null
-  }
-
   function selectLogoColorScheme(scheme: LogoSurfColorScheme) {
     if (!form.url.trim()) return
     selectedLogoSchemeName = scheme.name
@@ -251,43 +208,6 @@
 
   function openIconifyLibrary() {
     window.open('https://icon-sets.iconify.design/', '_blank', 'noopener,noreferrer')
-  }
-
-  function isCandidateSelected(candidate: IconCandidate): boolean {
-    if (candidate.source === 'logo_surf') {
-      return form.icon_source === 'logo_surf'
-    }
-
-    return form.icon === candidate.url && form.icon_source === candidate.source
-  }
-
-  function canPreviewIcon(icon: string): boolean {
-    return Boolean(icon.trim())
-  }
-
-  function canPreviewIconAsImage(icon: string): boolean {
-    return /^https?:\/\//i.test(icon) || /^data:image\//i.test(icon) || Boolean(iconifyProxyIcon(icon))
-  }
-
-  function getTextIconPreview(icon: string): string {
-    return icon.trim().slice(0, 4)
-  }
-
-  function getCandidatePreviewUrl(candidate: IconCandidate): string {
-    if (candidate.source === 'iconify') {
-      return iconifyProxyIcon(candidate.url)
-    }
-
-    return candidate.url
-  }
-
-  function getFormIconPreviewUrl(): string {
-    const iconifyPreview = iconifyProxyIcon(form.icon)
-    if (form.icon_source === 'iconify' || iconifyPreview) {
-      return iconifyProxyIcon(iconifyNameFromUrl(form.icon) ?? iconifyName) || iconifyPreview
-    }
-
-    return form.icon
   }
 
   function setPageScrollLocked(locked: boolean) {
@@ -344,27 +264,7 @@
   }
 
   async function handleSubmit() {
-    const trimmedIcon = form.icon.trim()
-    const submittedIconifyUrl =
-      form.icon_source === 'iconify'
-        ? iconifyIcon(iconifyName || trimmedIcon)
-        : iconifyIcon(trimmedIcon)
-    const submitIcon = submittedIconifyUrl || trimmedIcon
-    const submitIconSource = submitIcon
-      ? submittedIconifyUrl
-        ? 'iconify'
-        : form.icon_source || 'custom'
-      : ''
-
-    await onSubmit?.({
-      ...form,
-      title: form.title.trim(),
-      url: form.url.trim(),
-      icon: submitIcon,
-      icon_source: submitIconSource,
-      icon_background_color: form.icon_background_color.trim(),
-      description: form.description.trim(),
-    })
+    await onSubmit?.(buildBookmarkSubmitPayload(form, iconifyName))
   }
 
   function handleCancel() {
@@ -439,7 +339,7 @@
                 <button
                   type="button"
                   class="candidate-card"
-                  class:selected={isCandidateSelected(candidate)}
+                  class:selected={isCandidateSelected(candidate, form)}
                   on:click={() => selectCandidate(candidate)}
                   title={candidate.label}
                 >
@@ -472,88 +372,31 @@
         </div>
 
         {#if showIconifyOptions}
-        <div class="iconify-section field-wide">
-          <div class="scheme-header">
-            <span class="field-label">Iconify 图标</span>
-            <button type="button" class="text-link-button" on:click={openIconifyLibrary}>
-              打开 Iconify 图标库
-            </button>
-          </div>
-          <div class="iconify-row">
-            <input
-              bind:value={iconifyName}
-              type="text"
-              placeholder="例如 mdi:home、simple-icons:github 或 icon-sets 链接"
-              aria-label="Iconify 图标名"
-            />
-            {#if iconifyPreviewUrl}
-              <span class="iconify-preview">
-                <img src={iconifyPreviewUrl} alt="Iconify 图标预览" />
-              </span>
-            {:else}
-              <span class="iconify-preview iconify-preview--empty" aria-hidden="true"></span>
-            {/if}
-            <button
-              type="button"
-              class="ghost-button fetch-button iconify-use-button"
-              class:selected={iconifySelected}
-              on:click={selectIconifyIcon}
-              aria-pressed={iconifySelected}
-              disabled={loading || !iconifyPreviewUrl}
-            >
-              使用 Iconify
-            </button>
-          </div>
-          <small class="hint-text">可从 icon-sets.iconify.design 复制图标名或完整图标页面链接，保存后会通过本地图标代理和浏览器缓存加载。</small>
-          {#if iconifySearchCandidates.length > 0}
-            <div class="iconify-candidates">
-              {#each iconifySearchCandidates as candidate}
-                <button
-                  type="button"
-                  class="candidate-card iconify-candidate-card"
-                  class:selected={iconifyUseConfirmed && confirmedIconifyName === candidate.name}
-                  on:click={() => selectIconifySearchCandidate(candidate)}
-                  title={`${candidate.name} - ${candidate.collection}`}
-                >
-                  <img src={candidate.preview_url} alt={candidate.name} loading="lazy" />
-                  <span class="candidate-label">{candidate.name}</span>
-                </button>
-              {/each}
-            </div>
-          {:else if iconifySearchLoading}
-            <small class="hint-text">Iconify 图标搜索中...</small>
-          {:else if iconifySearchError}
-            <small class="field-error">{iconifySearchError}</small>
-          {/if}
-          {#if candidateError}
-            <small class="field-error">{candidateError}</small>
-          {/if}
-        </div>
+          <IconifySelector
+            bind:iconifyName
+            {iconifyPreviewUrl}
+            {iconifySelected}
+            {iconifyUseConfirmed}
+            {confirmedIconifyName}
+            {iconifySearchCandidates}
+            {iconifySearchLoading}
+            {iconifySearchError}
+            {candidateError}
+            {loading}
+            onOpenLibrary={openIconifyLibrary}
+            onSelectIcon={selectIconifyIcon}
+            onSelectCandidate={selectIconifySearchCandidate}
+          />
         {/if}
 
         {#if showLogoSchemes}
-          <div class="logo-scheme-section field-wide">
-            <div class="scheme-header">
-              <span class="field-label">文字图标配色</span>
-              <span class="scheme-current">{currentLogoScheme.bgColor} / {currentLogoScheme.textColor}</span>
-            </div>
-            <div class="logo-scheme-grid">
-              {#each LOGO_SURF_COLOR_SCHEMES as scheme}
-                <button
-                  type="button"
-                  class="scheme-button"
-                  class:selected={selectedLogoSchemeName === scheme.name && form.icon_source === 'logo_surf'}
-                  on:click={() => selectLogoColorScheme(scheme)}
-                  title={`${scheme.name}: ${scheme.bgColor} / ${scheme.textColor}`}
-                >
-                  <span class="scheme-preview" style="background: {scheme.bgColor}; color: {scheme.textColor};">
-                    {logoPreviewText}
-                  </span>
-                  <span class="scheme-name">{scheme.name}</span>
-                </button>
-              {/each}
-            </div>
-          </div>
+          <LogoSchemeSelector
+            {selectedLogoSchemeName}
+            iconSource={form.icon_source}
+            {currentLogoScheme}
+            {logoPreviewText}
+            onSelectScheme={selectLogoColorScheme}
+          />
         {/if}
 
         <label class="field-wide">
@@ -568,7 +411,7 @@
             {#if form.icon && canPreviewIcon(form.icon)}
               <span class="icon-preview" title="图标预览">
                 {#if canPreviewIconAsImage(form.icon)}
-                  <img src={getFormIconPreviewUrl()} alt="图标预览" />
+                  <img src={getFormIconPreviewUrl(form, iconifyName)} alt="图标预览" />
                 {:else}
                   <span class="icon-preview-text">{getTextIconPreview(form.icon)}</span>
                 {/if}
@@ -774,94 +617,10 @@
     gap: 5px;
   }
 
-  .iconify-section {
-    display: grid;
-    min-width: 0;
-    gap: 6px;
-  }
-
-  .iconify-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 32px max-content;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .iconify-preview {
-    width: 30px;
-    height: 30px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: #f8fafc;
-  }
-
-  .iconify-preview img {
-    width: 22px;
-    height: 22px;
-    object-fit: contain;
-  }
-
-  .iconify-preview--empty {
-    opacity: 0.42;
-    background:
-      linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
-      linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
-      linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
-    background-color: #f8fafc;
-    background-position: 0 0, 0 5px, 5px -5px, -5px 0;
-    background-size: 10px 10px;
-  }
-
-  .iconify-use-button {
-    border-color: #cbd5e1;
-    background: #ffffff;
-    color: #0f172a;
-    box-shadow: none;
-  }
-
-  .iconify-use-button.selected {
-    border-color: #2563eb;
-    background: #2563eb;
-    color: #ffffff;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
-  }
-
-  .iconify-use-button.selected:hover:not(:disabled) {
-    border-color: #1d4ed8;
-    background: #1d4ed8;
-    color: #ffffff;
-  }
-
-  .text-link-button {
-    border: 0;
-    background: transparent;
-    color: #2563eb;
-    cursor: pointer;
-    font: inherit;
-    font-size: 12px;
-    padding: 0;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
-
   .icon-candidates {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 5px;
-  }
-
-  .iconify-candidates {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 6px;
-    max-height: 112px;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding-right: 2px;
   }
 
   .candidate-card {
@@ -909,86 +668,6 @@
     font-weight: 600;
   }
 
-  .logo-scheme-section {
-    display: grid;
-    min-width: 0;
-    gap: 5px;
-  }
-
-  .scheme-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .scheme-current {
-    color: #64748b;
-    font-size: 12px;
-  }
-
-  .logo-scheme-grid {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 6px;
-    max-height: 154px;
-    overflow-y: auto;
-    overscroll-behavior: auto;
-    padding-right: 2px;
-  }
-
-  .scheme-button {
-    display: grid;
-    grid-template-columns: 24px minmax(0, 1fr);
-    align-items: center;
-    gap: 5px;
-    min-height: 34px;
-    padding: 5px;
-    border: 2px solid #e2e8f0;
-    border-radius: 10px;
-    background: #ffffff;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    text-align: left;
-  }
-
-  .scheme-button:hover {
-    border-color: #93c5fd;
-    background: #f8fbff;
-  }
-
-  .scheme-button.selected {
-    border-color: #2563eb;
-    background: #eff6ff;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-  }
-
-  .scheme-preview {
-    width: 24px;
-    height: 24px;
-    border-radius: 7px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    font-size: 9px;
-    font-weight: 700;
-    line-height: 1;
-  }
-
-  .scheme-name {
-    min-width: 0;
-    color: #475569;
-    font-size: 9.5px;
-    line-height: 1.2;
-    overflow-wrap: anywhere;
-  }
-
-  .scheme-button.selected .scheme-name {
-    color: #1e40af;
-    font-weight: 600;
-  }
-
   .icon-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) max-content max-content;
@@ -1000,7 +679,6 @@
     min-width: 0;
   }
 
-  .fetch-button,
   .upload-button {
     flex: 0 0 auto;
     white-space: nowrap;
@@ -1142,20 +820,6 @@
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 
-    .iconify-candidates {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .logo-scheme-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .scheme-header {
-      align-items: flex-start;
-      flex-direction: column;
-      gap: 4px;
-    }
-
     .icon-row {
       align-items: stretch;
       grid-template-columns: minmax(0, 1fr) 32px;
@@ -1163,14 +827,6 @@
 
     .icon-row .upload-button {
       grid-column: 1 / -1;
-    }
-
-    .iconify-row {
-      grid-template-columns: 1fr;
-    }
-
-    .iconify-preview {
-      width: 100%;
     }
 
     .modal-actions {

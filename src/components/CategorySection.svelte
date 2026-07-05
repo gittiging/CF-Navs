@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { CardStyle, PublicBookmark, PublicCategory } from '../../shared/types'
   import BookmarkCard from './BookmarkCard.svelte'
+  import { createIconVersion } from '../lib/bookmarkIconDisplay'
+  import { reorderByIds } from '../lib/reorder'
   import { sortableList } from '../lib/sortableList'
 
   type AsyncVoid<T = void> = T | Promise<T>
@@ -40,10 +42,7 @@
   }
 
   function handleReorder(orderedIds: Array<string | number>) {
-    const byId = new Map(localBookmarks.map((item) => [String(item.id), item]))
-    localBookmarks = orderedIds
-      .map((id) => byId.get(String(id)))
-      .filter((item): item is PublicBookmark => Boolean(item))
+    localBookmarks = reorderByIds(localBookmarks, orderedIds)
   }
 
   async function saveSort() {
@@ -72,14 +71,6 @@
   $: if (categoryIconKey !== categoryIconStateKey) {
     categoryIconStateKey = categoryIconKey
     categoryIconFailed = false
-  }
-
-  function createIconVersion(input: string): string {
-    let hash = 0
-    for (let i = 0; i < input.length; i += 1) {
-      hash = Math.imul(31, hash) + input.charCodeAt(i) | 0
-    }
-    return Math.abs(hash).toString(36)
   }
 
   function getCategoryIconUrl(value: PublicCategory): string {

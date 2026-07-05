@@ -1,53 +1,9 @@
-<script context="module" lang="ts">
-  type IconVisibilityCallback = () => void
-
-  const iconVisibilityCallbacks = new WeakMap<Element, IconVisibilityCallback>()
-  let sharedIconObserver: IntersectionObserver | null = null
-
-  function getSharedIconObserver(): IntersectionObserver | null {
-    if (typeof IntersectionObserver === 'undefined') return null
-
-    if (!sharedIconObserver) {
-      sharedIconObserver = new IntersectionObserver((entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue
-
-          const callback = iconVisibilityCallbacks.get(entry.target)
-          iconVisibilityCallbacks.delete(entry.target)
-          sharedIconObserver?.unobserve(entry.target)
-          callback?.()
-        }
-      }, {
-        root: null,
-        rootMargin: '420px 0px',
-        threshold: 0,
-      })
-    }
-
-    return sharedIconObserver
-  }
-
-  function observeIconVisibility(element: Element, callback: IconVisibilityCallback): () => void {
-    const observer = getSharedIconObserver()
-    if (!observer) {
-      callback()
-      return () => undefined
-    }
-
-    iconVisibilityCallbacks.set(element, callback)
-    observer.observe(element)
-
-    return () => {
-      iconVisibilityCallbacks.delete(element)
-      observer.unobserve(element)
-    }
-  }
-</script>
-
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte'
   import type { CardStyle, PublicBookmark } from '../../shared/types'
+  import { buildIconStyle, createIconVersion } from '../lib/bookmarkIconDisplay'
   import { iconifyProxyIcon, isIconifyIconUrl, logoSurfIcon } from '../lib/icons'
+  import { observeIconVisibility } from '../lib/iconVisibility'
   import {
     createBookmarkIconCacheKey,
     readCachedBookmarkIconDataUri,
@@ -56,10 +12,6 @@
   } from '../lib/localBookmarkIconCache'
 
   type AsyncVoid<T = void> = T | Promise<T>
-  type IconStyleOptions = {
-    compact?: boolean
-    customBackground?: string
-  }
 
   const CONTEXT_MENU_OPEN_EVENT = 'cf-navs-bookmark-context-menu-open'
 
@@ -179,42 +131,6 @@
     return ''
   })()
   $: hasRenderableIcon = Boolean(iconUrl) && !fallbackFailed
-
-  function iconRadiusFor(size: number): number {
-    return Math.round(Math.max(9, Math.min(16, size * 0.22)))
-  }
-
-  function iconPaddingFor(size: number, compact = false): number {
-    const ratio = compact ? 0.12 : 0.15
-    return Math.round(Math.max(compact ? 5 : 6, Math.min(compact ? 12 : 10, size * ratio)))
-  }
-
-  function iconFontSizeFor(size: number): number {
-    return Math.round(Math.max(18, Math.min(32, size * 0.42)))
-  }
-
-  function buildIconStyle(size: number, options: IconStyleOptions = {}): string {
-    const radius = iconRadiusFor(size)
-    const imageRadius = Math.max(5, radius - 4)
-    return [
-      `width: ${size}px;`,
-      `height: ${size}px;`,
-      'max-width: 100%;',
-      `--bookmark-icon-radius: ${radius}px;`,
-      `--bookmark-icon-image-radius: ${imageRadius}px;`,
-      `--bookmark-icon-padding: ${iconPaddingFor(size, options.compact)}px;`,
-      `--bookmark-icon-font-size: ${iconFontSizeFor(size)}px;`,
-      options.customBackground ? `background: ${options.customBackground};` : '',
-    ].join(' ')
-  }
-
-  function createIconVersion(input: string): string {
-    let hash = 0
-    for (let i = 0; i < input.length; i += 1) {
-      hash = Math.imul(31, hash) + input.charCodeAt(i) | 0
-    }
-    return Math.abs(hash).toString(36)
-  }
 
   function resetLocalCachedIconUrl() {
     if (localCachedIconUrl) {
