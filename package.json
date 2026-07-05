@@ -17,7 +17,7 @@
     "db:init:remote": "node scripts/wrangler-config.mjs d1 execute cf-navs-db --remote --file=./schema.sql"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240909.0",
+    "@cloudflare/workers-types": "^4.20260702.1",
     "@sveltejs/vite-plugin-svelte": "^3.1.2",
     "@tsconfig/svelte": "^5.0.4",
     "svelte": "^4.2.19",
@@ -26,10 +26,10 @@
     "typescript": "^5.5.4",
     "vite": "^5.4.6",
     "vitest": "^3.2.6",
-    "wrangler": "^4.103.0"
+    "wrangler": "^4.107.0"
   },
   "dependencies": {
-    "hono": "^4.6.3",
+    "hono": "^4.12.27",
     "sortablejs": "^1.15.3"
   }
 }
