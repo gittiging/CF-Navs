@@ -131,3 +131,16 @@ Fix:
 
 - The initial boot splash is now removed immediately when booting completes instead of using an outro fade.
 - Retest after deployment showed `app-splash` count at 0 after reload, the admin toolbar button entered the admin page, admin bookmark search worked, zero failed requests were observed, and `/api/admin/data` stayed about 38 KB transferred.
+
+## 2026-07-05 Round 8
+
+Stress path: rapid home search input, filtered render, and clearing back to the full 337-bookmark list.
+
+Observed:
+
+- Home search already deferred filtering, but visible category IDs were built via `visibleBookmarks.map(...)` followed by `new Set(...)`, creating an avoidable intermediate array each filter pass.
+
+Fix:
+
+- Visible category IDs are now built in a single loop without the intermediate array allocation.
+- Retest showed rapid `n` -> `np` -> `npm` input caused 0 DOM mutations before the debounce settled, the settled query rendered 5 cards in 1 section, clearing restored 337 cards across 11 sections, no images were broken, zero failed requests were observed, and `/api/admin/data` stayed about 38 KB transferred.

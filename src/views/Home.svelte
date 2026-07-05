@@ -60,7 +60,7 @@
   $: visibleBookmarks = hasSearchQuery
     ? sortedBookmarks.filter((bookmark) => bookmarkMatchesSearch(bookmark, normalizedSearchQuery, searchTextByBookmarkId))
     : sortedBookmarks
-  $: visibleCategoryIds = new Set(visibleBookmarks.map((bookmark) => bookmark.category_id))
+  $: visibleCategoryIds = getVisibleCategoryIds(visibleBookmarks)
   $: visibleCategories = hasSearchQuery
     ? sortedCategories.filter((category) => visibleCategoryIds.has(category.id))
     : sortedCategories
@@ -209,6 +209,14 @@
     searchIndex: Map<number, string>,
   ): boolean {
     return (searchIndex.get(bookmark.id) ?? '').includes(keyword)
+  }
+
+  function getVisibleCategoryIds(items: PublicBookmark[]): Set<number> {
+    const ids = new Set<number>()
+    for (const bookmark of items) {
+      ids.add(bookmark.category_id)
+    }
+    return ids
   }
 
   function refreshSectionElements() {
