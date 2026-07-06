@@ -442,9 +442,14 @@
   }
 
   async function handleDeleteCategory(category: { id: string | number; title: string }): Promise<void> {
-    if (!window.confirm(`确认删除分类「${category.title}」吗？该分类下书签会一并删除。`)) {
-      return
-    }
+    const confirmed = await requestConfirmation({
+      title: '删除分类',
+      message: '删除后该分类及其下所有书签都会从首页和后台列表中移除，此操作不可撤销。',
+      itemTitle: category.title,
+      confirmLabel: '确认删除',
+      variant: 'danger',
+    })
+    if (!confirmed) return
 
     deletingCategoryId = Number(category.id)
     categoryError = ''
@@ -687,7 +692,6 @@
   async function handleImportData(file: File, source: ImportSource): Promise<void> {
     backupError = ''
     backupMessage = ''
-    importing = true
 
     try {
       const text = await file.text()
@@ -701,14 +705,17 @@
       const { prepareImportPayload } = await import('./lib/importData')
       const prepared = prepareImportPayload(parsed, source)
 
-      const confirmed = window.confirm(
-        `导入 ${prepared.sourceLabel} 将【覆盖】现有的全部分类与书签（${prepared.categories} 个分类，${prepared.bookmarks} 个书签），确定继续吗？`,
-      )
+      const confirmed = await requestConfirmation({
+        title: '导入并覆盖数据',
+        message: `导入 ${prepared.sourceLabel} 将覆盖现有的全部分类与书签（${prepared.categories} 个分类，${prepared.bookmarks} 个书签），此操作不可撤销。`,
+        confirmLabel: '确认导入',
+        variant: 'danger',
+      })
       if (!confirmed) {
-        importing = false
         return
       }
 
+      importing = true
       const result = await api.data.importAll(prepared.payload)
       applyLoggedInData(result.data)
       await persistCurrentAdminData()
