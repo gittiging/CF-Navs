@@ -16,6 +16,12 @@
   import type { BookmarkFormValue, CategoryFormValue } from './lib/adminTypes'
   import { toBookmarkForm, toBookmarkPayload, toCategoryForm, toCategoryPayload } from './lib/adminFormAdapters'
   import {
+    createBackupExportMessage,
+    createBackupFileName,
+    createBackupPayload,
+    createImportSuccessMessage,
+  } from './lib/appBackup'
+  import {
     createConfirmDialogState,
     createDeleteBookmarkConfirmation,
     createDeleteCategoryConfirmation,
@@ -631,24 +637,17 @@
     backupMessage = ''
 
     try {
-      const payload = {
-        version: 1,
-        exported_at: Date.now(),
-        categories: adminData.categories,
-        bookmarks: adminData.bookmarks,
-        settings: adminData.settings,
-      }
+      const payload = createBackupPayload(adminData)
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
       const href = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
-      const stamp = new Date().toISOString().slice(0, 10)
       anchor.href = href
-      anchor.download = `cf-navs-backup-${stamp}.json`
+      anchor.download = createBackupFileName(new Date(payload.exported_at))
       document.body.appendChild(anchor)
       anchor.click()
       anchor.remove()
       URL.revokeObjectURL(href)
-      backupMessage = `已导出 ${adminData.categories.length} 个分类、${adminData.bookmarks.length} 个书签。`
+      backupMessage = createBackupExportMessage(payload)
     } catch (error) {
       backupError = getErrorMessage(error)
     }
@@ -679,7 +678,7 @@
       const result = await api.data.importAll(prepared.payload)
       applyLoggedInData(result.data)
       await persistCurrentAdminData()
-      backupMessage = `导入成功：${result.categories} 个分类、${result.bookmarks} 个书签。`
+      backupMessage = createImportSuccessMessage(result)
     } catch (error) {
       backupError = getErrorMessage(error)
     } finally {

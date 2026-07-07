@@ -84,6 +84,10 @@
   - `src/lib/appConfirmDialog.ts`
   - `tests/unit/appConfirmDialog.test.ts`
 - `tests/unit/confirmationFlow.test.ts` 继续保护删除和导入流程：不使用 `window.confirm`，导入覆盖确认必须发生在 `importing = true` 和 API 调用之前。
+- 从 `src/App.svelte` 中抽出备份导出和导入成功提示的纯逻辑：
+  - `src/lib/appBackup.ts`
+  - `tests/unit/appBackup.test.ts`
+- 当前只下沉导出 payload、备份文件名、导出成功文案和导入成功文案；Blob、临时链接点击、URL 回收、API 导入和 store 持久化仍留在 `App.svelte`。
 - `App.svelte` 仍保留 API 调用、store 更新、懒加载组件、弹窗开关、确认框 resolver 和错误状态。
 
 ## 当前大文件分布
@@ -91,7 +95,7 @@
 截至本轮完成后，主要业务文件行数约为：
 
 ```text
-915   src/App.svelte
+874   src/App.svelte
 555   src/views/Home.svelte
 538   src/components/admin/adminListPanels.css
 527   src/views/Admin.svelte
@@ -156,7 +160,7 @@ https://navs.bjlius.com
 
 1. `src/App.svelte`
    - 建议按 use-case 拆分：bootstrap/refresh、local mutations、modal handlers、import/export、sort handlers。
-   - 已开始先抽无副作用的弹窗草稿/查找 helper，以及确认框状态/文案 helper。继续拆分前应补更多针对导入导出和排序回写的单元测试。
+   - 已开始先抽无副作用的弹窗草稿/查找 helper、确认框状态/文案 helper，以及备份导出 payload/文件名/成功文案 helper。继续拆分前应补更多针对导入解析和排序回写的单元测试。
 
 2. `worker/lib/db.ts`
    - 可以继续按数据域拆：category repository、bookmark repository、settings repository、import repository。
