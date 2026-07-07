@@ -147,6 +147,28 @@
 
 `App.svelte` 仍是最大文件。它承担全局状态编排，包括登录、缓存、导入导出、CRUD 后本地增量更新、弹窗协调和排序回写。后续如果继续拆分，应按应用 use-case 或 controller 边界单独规划，不建议零散移动函数。`Home.svelte` 已降到约 457 行，继续拆分应优先考虑 section tracking/search controller 或分类列表展示边界。`BookmarkCard.svelte` 已降到约 333 行，`BookmarkEditModal.svelte` 已降到约 501 行；二者后续更适合做运行时验证驱动的小步清理，而不是继续无边界拆分。
 
+## 最近部署与生产验证
+
+2026-07-07 已执行 `npm run deploy`，部署到 Cloudflare Worker：
+
+```text
+Version ID: 842237e7-8b83-4e0b-828a-df8284c06c1b
+Production domain: https://navs.bjlius.com
+```
+
+生产 Chrome/CDP 验证结果：
+
+- 首页加载正常，标题为 `不要摸鱼`。
+- 首页统计条正常：`共 11 个分类，341 个站点`。
+- 搜索无结果状态正常：显示 `没有匹配的书签`。
+- 首页渲染 11 个分类、341 个书签卡片，破损图片数为 0。
+- 登录成功后，管理入口、退出按钮和主题按钮可见。
+- 书签卡片右键菜单可打开，编辑弹窗可打开并可取消关闭。
+- 后台页面正常显示 `导航内容管理`、分类统计和书签统计。
+- `/api/config`、`/api/settings`、`/api/admin/data`、`/api/data/version` 均返回 200 且包含数据。
+- Chrome console error、page exception、failed request、非预期 HTTP 4xx/5xx 均为 0。
+- 验证使用的临时 headless Chrome 进程已清理。
+
 ## 每轮验证标准
 
 每轮代码调整后执行：
@@ -194,22 +216,27 @@ https://navs.bjlius.com
 
 ## 后续拆分建议
 
-1. `src/App.svelte`
-   - 建议按 use-case 拆分：bootstrap/refresh、local mutations、modal handlers、import/export、sort handlers。
-   - 已开始先抽无副作用的弹窗草稿/查找 helper、确认框状态/文案 helper、备份导出 payload/文件名/成功文案 helper、排序保存队列 helper、导入 JSON 文本解析 helper 和首页访问判定 helper；dataService 本地增量更新编排也已收敛。
+1. `src/views/Admin.svelte` / `src/components/admin/adminListPanels.css`
+   - 建议先拆后台页眉与认证操作按钮，再拆 tab 内容外壳，最后处理列表面板共享样式。
+   - `adminListPanels.css` 已较大，应优先移动只属于分类面板或书签面板的私有样式；共享分页、toolbar、status card 样式可以保留在公共 CSS，避免一次性全局化。
 
 2. `src/views/Home.svelte`
    - 已拆出顶部搜索、浮动操作、内容统计条和空状态面板。
    - 后续可继续拆 section tracking/search controller 或分类列表展示，但不建议在缺少浏览器验证时大改滚动 observer 行为。
 
-3. `worker/lib/db.ts`
+3. `src/App.svelte`
+   - 建议按 use-case 拆分：bootstrap/refresh、local mutations、modal handlers、import/export、sort handlers。
+   - 已开始先抽无副作用的弹窗草稿/查找 helper、确认框状态/文案 helper、备份导出 payload/文件名/成功文案 helper、排序保存队列 helper、导入 JSON 文本解析 helper 和首页访问判定 helper；dataService 本地增量更新编排也已收敛。
+   - 继续拆 App 前应单独规划 modal handler/controller 边界，不建议零散移动事件处理函数。
+
+4. `worker/lib/db.ts`
    - 可以继续按数据域拆：category repository、bookmark repository、settings repository、import repository。
    - 需要保持现有 `db.ts` re-export 入口，减少 worker route import churn。
 
-4. `BookmarkEditModal.svelte` / `BookmarkCard.svelte`
+5. `BookmarkEditModal.svelte` / `BookmarkCard.svelte`
    - 已完成展示子组件、图标状态、交互决策、Iconify 搜索 controller、基础字段组件、本地图标缓存测试和图标候选按钮样式收敛。
    - 后续如果继续清理 CSS，应只做有明确重复或死样式证据的小步调整，并配合浏览器验证；暂不建议把整个组件改成 controller/store 模式。
 
-5. 图标缓存消费者
+6. 图标缓存消费者
    - `BookmarkCard.svelte` 与 `CachedBookmarkIcon.svelte` 目前仍是两个场景不同的消费者。
    - 已补 `localBookmarkIconCache` 纯 helper 测试；是否抽 cache reader 应在确认两个消费者实际重复逻辑和运行时行为后再定。
