@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { IconifyCandidate } from '../../shared/types'
+  import BookmarkIconCandidateButton from './BookmarkIconCandidateButton.svelte'
 
   type AsyncVoid<T = void> = T | Promise<T>
 
@@ -41,7 +42,7 @@
     {/if}
     <button
       type="button"
-      class="ghost-button fetch-button iconify-use-button"
+      class="ghost-button iconify-use-button"
       class:selected={iconifySelected}
       on:click={() => onSelectIcon?.()}
       aria-pressed={iconifySelected}
@@ -54,16 +55,14 @@
   {#if iconifySearchCandidates.length > 0}
     <div class="iconify-candidates">
       {#each iconifySearchCandidates as candidate}
-        <button
-          type="button"
-          class="candidate-card iconify-candidate-card"
-          class:selected={iconifyUseConfirmed && confirmedIconifyName === candidate.name}
-          on:click={() => onSelectCandidate?.(candidate)}
+        <BookmarkIconCandidateButton
+          selected={iconifyUseConfirmed && confirmedIconifyName === candidate.name}
           title={`${candidate.name} - ${candidate.collection}`}
-        >
-          <img src={candidate.preview_url} alt={candidate.name} loading="lazy" />
-          <span class="candidate-label">{candidate.name}</span>
-        </button>
+          imageUrl={candidate.preview_url}
+          imageAlt={candidate.name}
+          label={candidate.name}
+          onSelect={() => onSelectCandidate?.(candidate)}
+        />
       {/each}
     </div>
   {:else if iconifySearchLoading}
@@ -178,51 +177,6 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     padding-right: 2px;
-  }
-
-  .candidate-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    min-height: 46px;
-    padding: 4px;
-    border: 2px solid #e2e8f0;
-    border-radius: 9px;
-    background: #ffffff;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-
-  .candidate-card:hover {
-    border-color: #93c5fd;
-    background: #f0f5ff;
-  }
-
-  .candidate-card.selected {
-    border-color: #2563eb;
-    background: #eff6ff;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-  }
-
-  .candidate-card img {
-    width: 22px;
-    height: 22px;
-    object-fit: contain;
-    border-radius: 6px;
-  }
-
-  .candidate-label {
-    font-size: 10px;
-    color: #475569;
-    text-align: center;
-    line-height: 1.2;
-    overflow-wrap: anywhere;
-  }
-
-  .candidate-card.selected .candidate-label {
-    color: #1e40af;
-    font-weight: 600;
   }
 
   .ghost-button {

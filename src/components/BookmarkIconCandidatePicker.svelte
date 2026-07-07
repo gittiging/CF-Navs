@@ -5,6 +5,7 @@
     isCandidateSelected,
   } from '../lib/bookmarkFormIcons'
   import type { IconCandidate } from '../lib/icons'
+  import BookmarkIconCandidateButton from './BookmarkIconCandidateButton.svelte'
 
   type AsyncVoid<T = void> = T | Promise<T>
 
@@ -24,20 +25,14 @@
   {#if candidates.length > 0}
     <div class="icon-candidates">
       {#each candidates as candidate}
-        <button
-          type="button"
-          class="candidate-card"
-          class:selected={isCandidateSelected(candidate, form)}
-          on:click={() => handleSelect(candidate)}
+        <BookmarkIconCandidateButton
+          selected={isCandidateSelected(candidate, form)}
           title={candidate.label}
-        >
-          <img
-            src={getCandidatePreviewUrl(candidate)}
-            alt={candidate.label}
-            loading="lazy"
-          />
-          <span class="candidate-label">{candidate.label}</span>
-        </button>
+          imageUrl={getCandidatePreviewUrl(candidate)}
+          imageAlt={candidate.label}
+          label={candidate.label}
+          onSelect={() => handleSelect(candidate)}
+        />
       {/each}
     </div>
   {:else if urlFilled}
@@ -76,51 +71,6 @@
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 5px;
-  }
-
-  .candidate-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    min-height: 46px;
-    padding: 4px;
-    border: 2px solid #e2e8f0;
-    border-radius: 9px;
-    background: #ffffff;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-
-  .candidate-card:hover {
-    border-color: #93c5fd;
-    background: #f0f5ff;
-  }
-
-  .candidate-card.selected {
-    border-color: #2563eb;
-    background: #eff6ff;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-  }
-
-  .candidate-card img {
-    width: 22px;
-    height: 22px;
-    object-fit: contain;
-    border-radius: 6px;
-  }
-
-  .candidate-label {
-    font-size: 10px;
-    color: #475569;
-    text-align: center;
-    line-height: 1.2;
-    overflow-wrap: anywhere;
-  }
-
-  .candidate-card.selected .candidate-label {
-    color: #1e40af;
-    font-weight: 600;
   }
 
   @media (max-width: 500px) {

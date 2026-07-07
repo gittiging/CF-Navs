@@ -47,7 +47,7 @@
   </select>
 </label>
 
-<label class="field-wide description-field">
+<label class="field-wide">
   <span>描述</span>
   <textarea bind:value={description} rows="3" placeholder="补充说明，可选"></textarea>
 </label>

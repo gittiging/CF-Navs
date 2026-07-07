@@ -69,6 +69,9 @@
   - `src/components/BookmarkBaseFields.svelte`
 - 为 `src/lib/localBookmarkIconCache.ts` 增加单元测试：
   - `tests/unit/localBookmarkIconCache.test.ts`
+- 收敛书签编辑弹窗中的图标候选按钮样式：
+  - `src/components/BookmarkIconCandidateButton.svelte`
+  - `BookmarkIconCandidatePicker.svelte` 与 `IconifySelector.svelte` 复用同一候选按钮展示组件
 - 父组件仍保留浏览器副作用和生命周期边界：本地图标缓存异步读取、observer、窗口事件监听、右键菜单状态、当前页弹层和弹窗提交流程没有迁移到隐藏 controller。
 
 ## 当前大文件分布
@@ -148,8 +151,8 @@ https://navs.bjlius.com
    - 需要保持现有 `db.ts` re-export 入口，减少 worker route import churn。
 
 3. `BookmarkEditModal.svelte` / `BookmarkCard.svelte`
-   - 已完成展示子组件、图标状态、交互决策、Iconify 搜索 controller、基础字段组件和本地图标缓存测试。
-   - 后续可在有浏览器运行时验证时做 scoped CSS 去重和视觉清理；暂不建议把整个组件改成 controller/store 模式。
+   - 已完成展示子组件、图标状态、交互决策、Iconify 搜索 controller、基础字段组件、本地图标缓存测试和图标候选按钮样式收敛。
+   - 后续如果继续清理 CSS，应只做有明确重复或死样式证据的小步调整，并配合浏览器验证；暂不建议把整个组件改成 controller/store 模式。
 
 4. 图标缓存消费者
    - `BookmarkCard.svelte` 与 `CachedBookmarkIcon.svelte` 目前仍是两个场景不同的消费者。

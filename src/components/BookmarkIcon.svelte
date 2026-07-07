@@ -24,7 +24,6 @@
   class="bookmark-icon"
   class:has-custom-background={hasCustomBackground}
   class:is-info={variant === 'info'}
-  class:is-compact={variant === 'compact'}
   style={iconStyle}
 >
   {#if iconUrl}
