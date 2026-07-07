@@ -1,8 +1,16 @@
 <script lang="ts">
   import type { AdminBookmarkSummary, AdminCategorySummary } from '../../lib/appData'
+  import {
+    clampAdminListPage,
+    createAdminListPage,
+    createAdminSortDraft,
+    filterAdminBookmarks,
+    getAdminCategoryTitle,
+    getAdminListTotalPages,
+    getAdminSortIds,
+    reorderAdminSortDraft,
+  } from '../../lib/adminListState'
   import { getBookmarkFallbackIcon, getBookmarkIconUrl, hasBookmarkImageIcon } from '../../lib/bookmarkIconDisplay'
-  import { clampPage, pageCount, pageEnd, pageStart, slicePage } from '../../lib/pagination'
-  import { reorderByIds } from '../../lib/reorder'
   import { sortableList, type SortHandler } from '../../lib/sortableList'
   import CachedBookmarkIcon from '../CachedBookmarkIcon.svelte'
   import './adminListPanels.css'
@@ -28,30 +36,20 @@
   let page = 1
   let search = ''
 
-  $: categoryTitleById = new Map(categories.map((category) => [category.id, category.title]))
-  $: normalizedSearch = search.trim().toLowerCase()
-  $: filteredBookmarks = normalizedSearch
-    ? bookmarks.filter((bookmark) => {
-        const catTitle = (categoryTitleById.get(bookmark.category_id) ?? '').toLowerCase()
-        return (
-          bookmark.title.toLowerCase().includes(normalizedSearch) ||
-          bookmark.url.toLowerCase().includes(normalizedSearch) ||
-          catTitle.includes(normalizedSearch)
-        )
-      })
-    : bookmarks
-  $: totalPages = pageCount(filteredBookmarks.length)
-  $: page = clampPage(page, totalPages)
-  $: pagedBookmarks = slicePage(filteredBookmarks, page)
+  $: filteredBookmarks = filterAdminBookmarks(bookmarks, categories, search)
+  $: totalPages = getAdminListTotalPages(filteredBookmarks.length)
+  $: page = clampAdminListPage(page, totalPages)
+  $: bookmarkPage = createAdminListPage(filteredBookmarks, page)
+  $: pagedBookmarks = bookmarkPage.items
   $: displayBookmarks = sortMode ? localBookmarks : pagedBookmarks
 
   const getCategoryTitle = (categoryId: string | number) =>
-    categories.find((category) => category.id === categoryId)?.title ?? '未分类'
+    getAdminCategoryTitle(categories, categoryId)
 
   function enterSort() {
     search = ''
     page = 1
-    localBookmarks = [...bookmarks]
+    localBookmarks = createAdminSortDraft(bookmarks)
     sortMode = true
   }
 
@@ -61,7 +59,7 @@
   }
 
   function handleReorder(orderedIds: Array<string | number>) {
-    localBookmarks = reorderByIds(localBookmarks, orderedIds)
+    localBookmarks = reorderAdminSortDraft(localBookmarks, orderedIds)
   }
 
   async function saveSort() {
@@ -72,7 +70,7 @@
 
     savingSort = true
     try {
-      await onSortBookmarks(localBookmarks.map((item) => item.id))
+      await onSortBookmarks(getAdminSortIds(localBookmarks))
       cancelSort()
     } finally {
       savingSort = false
@@ -239,7 +237,7 @@
           <div class="admin-sort-hint">拖动行调整顺序，完成后点击「保存排序」。</div>
         {:else}
           <div class="admin-pagination">
-            <span>第 {pageStart(page, filteredBookmarks.length)}-{pageEnd(page, filteredBookmarks.length)} 条 / 共 {filteredBookmarks.length} 条</span>
+            <span>第 {bookmarkPage.start}-{bookmarkPage.end} 条 / 共 {bookmarkPage.total} 条</span>
             <div class="admin-pager-actions">
               <button type="button" class="admin-ghost-button compact" on:click={() => page -= 1} disabled={page <= 1}>上一页</button>
               <span>{page} / {totalPages}</span>

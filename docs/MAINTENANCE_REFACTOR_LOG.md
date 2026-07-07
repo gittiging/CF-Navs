@@ -151,6 +151,16 @@
 - `src/components/admin/adminListPanels.css` 保留共享的列表外壳、状态卡片、header/toolbar/footer、分页、排序条、拖拽 handle 和通用按钮样式。
 - 本轮不改动面板 DOM、搜索/分页/排序状态或 Sortable 配置，只调整 CSS 所属边界；`svelte-check` 验证 scoped selector 0 warning。
 
+### Round 15: Admin 列表纯逻辑 helper 与测试
+
+- 新增后台列表状态 helper：
+  - `src/lib/adminListState.ts`
+  - `tests/unit/adminListState.test.ts`
+- 从 `CategoryListPanel.svelte` 中下沉分类分页状态、分类书签计数 fallback、排序草稿和保存 id 推导。
+- 从 `BookmarkListPanel.svelte` 中下沉书签搜索过滤、分类标题 fallback、分页状态、排序草稿和保存 id 推导。
+- 单元测试覆盖：按标题/URL/分类名搜索、空搜索保留原列表、分类标题与计数 fallback、页码 clamp 与显示范围、排序草稿复制、按 id 重排和保存 id 输出。
+- 本轮保持 Svelte 组件继续持有 sort mode、search、page、savingSort 等 UI 状态，不抽完整 controller；测试文件数从 29 增至 30，测试数从 141 增至 146。
+
 ## 当前大文件分布
 
 截至本轮完成后，主要业务文件行数约为：
@@ -163,17 +173,18 @@
 416   src/components/Sidebar.svelte
 396   src/app.css
 389   src/components/CategorySection.svelte
-388   src/components/admin/BookmarkListPanel.svelte
 388   src/lib/api.ts
 387   src/components/settings/CardSettingsSection.svelte
+386   src/components/admin/BookmarkListPanel.svelte
 385   src/lib/dataService.ts
 322   src/views/Admin.svelte
 310   src/components/admin/adminListPanels.css
-297   src/components/admin/CategoryListPanel.svelte
+302   src/components/admin/CategoryListPanel.svelte
 148   src/components/admin/AdminTabContent.svelte
+93    src/lib/adminListState.ts
 ```
 
-`App.svelte` 仍是最大文件。它承担全局状态编排，包括登录、缓存、导入导出、CRUD 后本地增量更新、弹窗协调和排序回写。后续如果继续拆分，应按应用 use-case 或 controller 边界单独规划，不建议零散移动函数。`Home.svelte` 已降到约 457 行，继续拆分应优先考虑 section tracking/search controller 或分类列表展示边界。`Admin.svelte` 已降到约 322 行，页眉和 tab 内容外壳已拆出；`adminListPanels.css` 已从约 538 行降到约 310 行，剩余内容以共享列表壳、分页、状态卡片和排序样式为主。下一步更适合为后台列表的搜索/分页/排序纯逻辑补测试。`BookmarkCard.svelte` 已降到约 333 行，`BookmarkEditModal.svelte` 已降到约 501 行；二者后续更适合做运行时验证驱动的小步清理，而不是继续无边界拆分。
+`App.svelte` 仍是最大文件。它承担全局状态编排，包括登录、缓存、导入导出、CRUD 后本地增量更新、弹窗协调和排序回写。后续如果继续拆分，应按应用 use-case 或 controller 边界单独规划，不建议零散移动函数。`Home.svelte` 已降到约 457 行，继续拆分应优先考虑 section tracking/search controller 或分类列表展示边界。`Admin.svelte` 已降到约 322 行，页眉和 tab 内容外壳已拆出；`adminListPanels.css` 已从约 538 行降到约 310 行，剩余内容以共享列表壳、分页、状态卡片和排序样式为主；后台列表搜索、分页、排序 id 推导已有 `adminListState` 单元测试覆盖。`BookmarkCard.svelte` 已降到约 333 行，`BookmarkEditModal.svelte` 已降到约 501 行；二者后续更适合做运行时验证驱动的小步清理，而不是继续无边界拆分。
 
 ## 最近部署与生产验证
 
@@ -240,6 +251,7 @@ https://navs.bjlius.com
 - 拆出 Svelte 子组件后，父组件中迁出的 CSS 选择器可能变成 unused warning。处理方式：移动对应 media query 和局部样式到子组件，保证 `svelte-check` 0 warning。
 - Svelte reactive 依赖顺序很敏感。抽出 Iconify controller 时如果把 preview URL、selected 状态和确认重置塞进同一个 reactive 对象，可能触发循环依赖；处理方式是把输入 URL 推导和 selected 判断分成独立 helper。
 - 拆基础字段组件时，字段相关 scoped CSS 必须随组件一起迁移，否则父组件里的 `input/select/textarea` 选择器不会作用到子组件内部，也可能产生视觉回归。
+- 将分页状态组合成一个 reactive 对象后，如果该对象依赖 `page` 又反过来给 `page` 赋值，Svelte 会报告 cyclical dependency。处理方式：先用独立 helper 计算 `totalPages` 和 clamp 后的 `page`，再生成页面视图对象。
 - `AGENTS.md` 是本地-only 指令文件，不应加入 Git 提交。公开维护记录写入 `docs/`，本地 agent 操作经验写入 `AGENTS.md`。
 
 ## 后续拆分建议
@@ -247,7 +259,8 @@ https://navs.bjlius.com
 1. `src/views/Admin.svelte` / `src/components/admin/adminListPanels.css`
    - 已拆出后台页眉与认证操作按钮，以及 tab 内容外壳。
    - 已将分类/书签列表的私有样式迁回对应组件，公共 CSS 保留共享外壳、分页、状态卡片和排序样式。
-   - 下一步建议补后台列表纯逻辑 helper 测试，例如搜索过滤、分页 clamp、排序进入/取消/保存 id 推导。
+   - 已补后台列表纯逻辑 helper 测试，覆盖搜索过滤、分页 clamp、排序草稿和保存 id 推导。
+   - 下一步如继续 Admin，优先做浏览器验证或很小的视觉修正，不建议继续拆列表 controller。
 
 2. `src/views/Home.svelte`
    - 已拆出顶部搜索、浮动操作、内容统计条和空状态面板。

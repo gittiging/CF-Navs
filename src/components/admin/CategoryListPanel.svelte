@@ -1,7 +1,14 @@
 <script lang="ts">
   import type { AdminBookmarkSummary, AdminCategorySummary } from '../../lib/appData'
-  import { clampPage, pageCount, pageEnd, pageStart, slicePage } from '../../lib/pagination'
-  import { reorderByIds } from '../../lib/reorder'
+  import {
+    clampAdminListPage,
+    createAdminListPage,
+    createAdminSortDraft,
+    getAdminCategoryBookmarkCount,
+    getAdminListTotalPages,
+    getAdminSortIds,
+    reorderAdminSortDraft,
+  } from '../../lib/adminListState'
   import { sortableList, type SortHandler } from '../../lib/sortableList'
   import './adminListPanels.css'
 
@@ -26,16 +33,14 @@
   let savingSort = false
   let page = 1
 
-  $: totalPages = pageCount(categories.length)
-  $: page = clampPage(page, totalPages)
-  $: pagedCategories = slicePage(categories, page)
+  $: totalPages = getAdminListTotalPages(categories.length)
+  $: page = clampAdminListPage(page, totalPages)
+  $: categoryPage = createAdminListPage(categories, page)
+  $: pagedCategories = categoryPage.items
   $: displayCategories = sortMode ? localCategories : pagedCategories
 
-  const getBookmarksByCategory = (categoryId: string | number) =>
-    bookmarks.filter((bookmark) => bookmark.category_id === categoryId)
-
   function enterSort() {
-    localCategories = [...categories]
+    localCategories = createAdminSortDraft(categories)
     page = 1
     sortMode = true
   }
@@ -46,7 +51,7 @@
   }
 
   function handleReorder(orderedIds: Array<string | number>) {
-    localCategories = reorderByIds(localCategories, orderedIds)
+    localCategories = reorderAdminSortDraft(localCategories, orderedIds)
   }
 
   async function saveSort() {
@@ -57,7 +62,7 @@
 
     savingSort = true
     try {
-      await onSortCategories(localCategories.map((item) => item.id))
+      await onSortCategories(getAdminSortIds(localCategories))
       cancelSort()
     } finally {
       savingSort = false
@@ -126,7 +131,7 @@
               <span class="admin-icon-badge">{category.icon || '📁'}</span>
               <div class="admin-compact-info">
                 <h3>{category.title}</h3>
-                <span class="admin-count-badge">{category.bookmarkCount ?? getBookmarksByCategory(category.id).length} 个书签</span>
+                <span class="admin-count-badge">{getAdminCategoryBookmarkCount(category, bookmarks)} 个书签</span>
               </div>
               {#if !sortMode}
                 <div class="admin-inline-actions">
@@ -158,7 +163,7 @@
           <div class="admin-sort-hint">拖动卡片调整顺序，完成后点击「保存排序」。</div>
         {:else}
           <div class="admin-pagination">
-            <span>第 {pageStart(page, categories.length)}-{pageEnd(page, categories.length)} 条 / 共 {categories.length} 条</span>
+            <span>第 {categoryPage.start}-{categoryPage.end} 条 / 共 {categoryPage.total} 条</span>
             <div class="admin-pager-actions">
               <button type="button" class="admin-ghost-button compact" on:click={() => page -= 1} disabled={page <= 1}>上一页</button>
               <span>{page} / {totalPages}</span>
