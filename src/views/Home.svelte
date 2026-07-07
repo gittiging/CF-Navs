@@ -2,6 +2,8 @@
   import { onMount, onDestroy, tick } from 'svelte'
   import Sidebar from '../components/Sidebar.svelte'
   import CategorySection from '../components/CategorySection.svelte'
+  import HomeContentSummary from '../components/HomeContentSummary.svelte'
+  import HomeEmptyPanel from '../components/HomeEmptyPanel.svelte'
   import HomeFloatingActions from '../components/HomeFloatingActions.svelte'
   import HomeHeroSearch from '../components/HomeHeroSearch.svelte'
   import type { PublicBookmark, PublicCategory, PublicSettings } from '../../shared/types'
@@ -311,18 +313,13 @@
 
   <div class="content-layout">
     <main class="content-panel">
-      <div class="content-summary">
-        <div>
-          <p class="summary-label">当前内容</p>
-          <h2>
-            {#if hasSearchQuery}
-              匹配 {visibleCategories.length} 个分类，{visibleBookmarkCount} 个站点
-            {:else}
-              共 {sortedCategories.length} 个分类，{totalBookmarks} 个站点
-            {/if}
-          </h2>
-        </div>
-      </div>
+      <HomeContentSummary
+        {hasSearchQuery}
+        visibleCategoriesCount={visibleCategories.length}
+        {visibleBookmarkCount}
+        totalCategories={sortedCategories.length}
+        {totalBookmarks}
+      />
 
       {#if visibleCategories.length > 0}
         <div class="section-list">
@@ -347,15 +344,7 @@
           {/each}
         </div>
       {:else}
-        <section class="empty-panel">
-          {#if hasSearchQuery}
-            <h2>没有匹配的书签</h2>
-            <p>换个关键词试试，或按 Enter 使用当前搜索引擎搜索。</p>
-          {:else}
-            <h2>暂无公开内容</h2>
-            <p>当前还没有可展示的分类或书签，请稍后再来查看。</p>
-          {/if}
-        </section>
+        <HomeEmptyPanel {hasSearchQuery} />
       {/if}
     </main>
   </div>
@@ -418,22 +407,16 @@
     opacity: var(--home-background-mask, 0.3);
   }
 
-  .content-panel,
-  .empty-panel {
+  .content-panel {
     border-radius: 1.5rem;
     border: none;
     background: transparent;
     backdrop-filter: none;
   }
 
-  :global([data-theme='dark']) .content-panel,
-  :global([data-theme='dark']) .empty-panel {
+  :global([data-theme='dark']) .content-panel {
     border-color: transparent;
     background: transparent;
-  }
-
-  :global([data-theme='dark']) .empty-panel p {
-    color: rgba(203, 213, 225, 0.92);
   }
 
   .content-layout {
@@ -449,63 +432,6 @@
     padding: 0;
   }
 
-  .content-summary {
-    position: relative;
-    overflow: hidden;
-    align-self: flex-start;
-    display: inline-flex;
-    max-width: 100%;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.36rem 0.58rem;
-    border: 1px solid var(--home-stat-border);
-    border-radius: 0.72rem;
-    background: var(--home-stat-bg);
-    box-shadow: var(--home-stat-shadow);
-  }
-
-  .content-summary::before {
-    content: '';
-    flex: 0 0 auto;
-    width: 6px;
-    height: 6px;
-    border-radius: 999px;
-    background: var(--home-accent-color);
-    opacity: 0.86;
-  }
-
-  .content-summary > div {
-    min-width: 0;
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.45rem;
-  }
-
-  .summary-label,
-  .content-summary h2 {
-    margin: 0;
-  }
-
-  .summary-label {
-    flex: 0 0 auto;
-    font-size: 0.68rem;
-    letter-spacing: 0.04em;
-    color: var(--home-text-color);
-    font-weight: 700;
-    opacity: var(--home-muted-opacity);
-  }
-
-  .content-summary h2 {
-    color: var(--home-text-color);
-    font-size: 0.84rem;
-    font-weight: 600;
-    line-height: 1.2;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
   .section-list {
     display: flex;
     flex-direction: column;
@@ -517,20 +443,6 @@
     contain-intrinsic-size: auto 420px;
   }
 
-  .empty-panel {
-    padding: 2rem;
-  }
-
-  .empty-panel h2,
-  .empty-panel p {
-    margin: 0;
-  }
-
-  .empty-panel p {
-    margin-top: 0.75rem;
-    color: rgba(71, 85, 105, 0.92);
-  }
-
   .home-footer {
     max-width: var(--content-max-width, 1200px);
     margin: 2rem auto 0;
@@ -540,16 +452,6 @@
   @media (max-width: 720px) {
     .home-shell {
       padding: 1rem max(1rem, var(--content-margin-x, 0px)) var(--content-margin-bottom, 0%);
-    }
-
-    .content-summary {
-      width: 100%;
-      justify-content: flex-start;
-      padding: 0.34rem 0.52rem;
-    }
-
-    .summary-label {
-      display: none;
     }
   }
 </style>

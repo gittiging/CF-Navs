@@ -117,17 +117,26 @@
 - `getHomeGateView` 保持既有启动行为：仅在明确 `public_mode === false` 且未登录时落到 login；配置未知时仍先落到 home，再由后续 reactive gate 处理。
 - `App.svelte` 仍保留 auth 初始化、数据刷新、按需加载登录弹窗和视图切换副作用。
 
+### Round 11: Home 内容展示组件拆分
+
+- 从 `src/views/Home.svelte` 中拆出首页内容统计条：
+  - `src/components/HomeContentSummary.svelte`
+- 从 `src/views/Home.svelte` 中拆出首页空状态面板：
+  - `src/components/HomeEmptyPanel.svelte`
+- `Home.svelte` 继续保留搜索 debounce、分类/书签派生、section observer、滚动定位、侧边栏导航和分类列表渲染编排。
+- 本轮只迁移无状态展示模板及其 scoped CSS，不改变搜索、排序、滚动或生命周期逻辑。
+
 ## 当前大文件分布
 
 截至本轮完成后，主要业务文件行数约为：
 
 ```text
 869   src/App.svelte
-555   src/views/Home.svelte
 538   src/components/admin/adminListPanels.css
 527   src/views/Admin.svelte
 501   src/components/BookmarkEditModal.svelte
 459   src/components/SettingsPanel.svelte
+457   src/views/Home.svelte
 416   src/components/Sidebar.svelte
 396   src/app.css
 389   src/components/CategorySection.svelte
@@ -136,7 +145,7 @@
 385   src/lib/dataService.ts
 ```
 
-`App.svelte` 仍是最大文件。它承担全局状态编排，包括登录、缓存、导入导出、CRUD 后本地增量更新、弹窗协调和排序回写。后续如果继续拆分，应按应用 use-case 或 controller 边界单独规划，不建议零散移动函数。`BookmarkCard.svelte` 已降到约 333 行，`BookmarkEditModal.svelte` 已降到约 501 行；二者后续更适合做运行时验证驱动的小步清理，而不是继续无边界拆分。
+`App.svelte` 仍是最大文件。它承担全局状态编排，包括登录、缓存、导入导出、CRUD 后本地增量更新、弹窗协调和排序回写。后续如果继续拆分，应按应用 use-case 或 controller 边界单独规划，不建议零散移动函数。`Home.svelte` 已降到约 457 行，继续拆分应优先考虑 section tracking/search controller 或分类列表展示边界。`BookmarkCard.svelte` 已降到约 333 行，`BookmarkEditModal.svelte` 已降到约 501 行；二者后续更适合做运行时验证驱动的小步清理，而不是继续无边界拆分。
 
 ## 每轮验证标准
 
@@ -187,16 +196,20 @@ https://navs.bjlius.com
 
 1. `src/App.svelte`
    - 建议按 use-case 拆分：bootstrap/refresh、local mutations、modal handlers、import/export、sort handlers。
-   - 已开始先抽无副作用的弹窗草稿/查找 helper、确认框状态/文案 helper、备份导出 payload/文件名/成功文案 helper、排序保存队列 helper，以及导入 JSON 文本解析 helper。继续拆分前应补更多针对本地增量更新的单元测试。
+   - 已开始先抽无副作用的弹窗草稿/查找 helper、确认框状态/文案 helper、备份导出 payload/文件名/成功文案 helper、排序保存队列 helper、导入 JSON 文本解析 helper 和首页访问判定 helper；dataService 本地增量更新编排也已收敛。
 
-2. `worker/lib/db.ts`
+2. `src/views/Home.svelte`
+   - 已拆出顶部搜索、浮动操作、内容统计条和空状态面板。
+   - 后续可继续拆 section tracking/search controller 或分类列表展示，但不建议在缺少浏览器验证时大改滚动 observer 行为。
+
+3. `worker/lib/db.ts`
    - 可以继续按数据域拆：category repository、bookmark repository、settings repository、import repository。
    - 需要保持现有 `db.ts` re-export 入口，减少 worker route import churn。
 
-3. `BookmarkEditModal.svelte` / `BookmarkCard.svelte`
+4. `BookmarkEditModal.svelte` / `BookmarkCard.svelte`
    - 已完成展示子组件、图标状态、交互决策、Iconify 搜索 controller、基础字段组件、本地图标缓存测试和图标候选按钮样式收敛。
    - 后续如果继续清理 CSS，应只做有明确重复或死样式证据的小步调整，并配合浏览器验证；暂不建议把整个组件改成 controller/store 模式。
 
-4. 图标缓存消费者
+5. 图标缓存消费者
    - `BookmarkCard.svelte` 与 `CachedBookmarkIcon.svelte` 目前仍是两个场景不同的消费者。
    - 已补 `localBookmarkIconCache` 纯 helper 测试；是否抽 cache reader 应在确认两个消费者实际重复逻辑和运行时行为后再定。
