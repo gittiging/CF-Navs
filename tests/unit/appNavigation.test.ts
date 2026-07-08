@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { canSeeHomeView, getHomeGateView } from '../../src/lib/appNavigation'
+import {
+  canSeeHomeView,
+  createHomeGateState,
+  getHomeGateView,
+  shouldOpenLoginGate,
+} from '../../src/lib/appNavigation'
 
 describe('app navigation helpers', () => {
   it('allows the home view for public mode or authenticated sessions', () => {
@@ -20,5 +25,24 @@ describe('app navigation helpers', () => {
     expect(getHomeGateView({ publicMode: false, authenticated: true })).toBe('home')
     expect(getHomeGateView({ publicMode: true, authenticated: false })).toBe('home')
     expect(getHomeGateView({ publicMode: undefined, authenticated: false })).toBe('home')
+  })
+
+  it('builds the home gate state with the login modal flag', () => {
+    expect(createHomeGateState({ publicMode: false, authenticated: false })).toEqual({
+      view: 'login',
+      loginModalOpen: true,
+    })
+
+    expect(createHomeGateState({ publicMode: true, authenticated: false })).toEqual({
+      view: 'home',
+      loginModalOpen: false,
+    })
+  })
+
+  it('opens the login gate only after boot when home becomes inaccessible', () => {
+    expect(shouldOpenLoginGate({ booting: false, currentView: 'home', canSeeHome: false })).toBe(true)
+    expect(shouldOpenLoginGate({ booting: true, currentView: 'home', canSeeHome: false })).toBe(false)
+    expect(shouldOpenLoginGate({ booting: false, currentView: 'admin', canSeeHome: false })).toBe(false)
+    expect(shouldOpenLoginGate({ booting: false, currentView: 'home', canSeeHome: true })).toBe(false)
   })
 })

@@ -39,7 +39,7 @@
   import { createLazyComponentLoader } from './lib/appLazyComponent'
   import { buildOrderedBookmarkIdsForCategory } from './lib/appLocalData'
   import { createBookmarkDraft, createCategoryDraft, findBookmarkForEdit } from './lib/appModalState'
-  import { canSeeHomeView, getHomeGateView, type AppView } from './lib/appNavigation'
+  import { canSeeHomeView, createHomeGateState, shouldOpenLoginGate, type AppView } from './lib/appNavigation'
   import { isLatestSortRequest, normalizeSortIds, queueSortSave } from './lib/appSortQueue'
   import { getNextThemePreference, resolveAppThemeState } from './lib/appThemeState'
   import type { ImportSource } from './lib/importData'
@@ -145,7 +145,7 @@
   $: adminBookmarks = toAdminBookmarks(adminData.bookmarks)
   $: settingsValue = toSettingsForm(adminData.settings)
 
-  $: if (!booting && currentView === 'home' && !canSeeHome) {
+  $: if (shouldOpenLoginGate({ booting, currentView, canSeeHome })) {
     void ensureLoginModalComponent()
     loginModalOpen = true
     currentView = 'login'
@@ -273,15 +273,15 @@
       await refreshPublicData()
     }
 
-    const nextView = getHomeGateView({
+    const homeGate = createHomeGateState({
       publicMode: get(configStore).data?.public_mode,
       authenticated: isLoggedIn(),
     })
-    if (nextView === 'login') {
+    if (homeGate.loginModalOpen) {
       await ensureLoginModalComponent()
-      loginModalOpen = true
     }
-    currentView = nextView
+    loginModalOpen = homeGate.loginModalOpen
+    currentView = homeGate.view
     booting = false
   }
 
@@ -368,15 +368,15 @@
         applyConfigFromSettings(previousSettings)
       }
       await refreshPublicData()
-      const nextView = getHomeGateView({
+      const homeGate = createHomeGateState({
         publicMode: get(configStore).data?.public_mode,
         authenticated: false,
       })
-      if (nextView === 'login') {
+      if (homeGate.loginModalOpen) {
         await ensureLoginModalComponent()
-        loginModalOpen = true
       }
-      currentView = nextView
+      loginModalOpen = homeGate.loginModalOpen
+      currentView = homeGate.view
     } catch (error) {
       rootError = getErrorMessage(error)
     }
