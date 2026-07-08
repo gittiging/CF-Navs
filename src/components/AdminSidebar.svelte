@@ -20,6 +20,7 @@
       type="button"
       class="nav-item"
       class:active={activeTab === item.tab}
+      data-testid={`admin-tab-${item.tab}`}
       on:click={() => onSelect?.(item.tab)}
     >
       <span class="nav-icon">{item.icon}</span>

@@ -115,6 +115,7 @@
         <div class="admin-bookmark-search-bar">
           <input
             type="text"
+            data-testid="admin-bookmark-search"
             placeholder="搜索标题、链接或分类…"
             value={search}
             on:input={handleSearchInput}

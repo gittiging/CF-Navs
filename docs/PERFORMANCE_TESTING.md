@@ -1,6 +1,9 @@
 # Performance Testing
 
-This project includes a real-browser audit script for the production site or any deployed CF-Navs origin.
+This project includes two real-browser Chrome scripts for the production site or any deployed CF-Navs origin.
+
+- `npm run perf:audit` checks performance-sensitive behavior and thresholds.
+- `npm run regression:chrome` checks broader functional regression paths without modifying data.
 
 Read `docs/PERFORMANCE_CONTRACT.md` before changing data freshness, icon loading, Service Worker caching, or admin loading behavior.
 
@@ -26,6 +29,18 @@ $env:ADMIN_PASS = '<admin password>'
 npm run perf:audit
 ```
 
+Functional regression:
+
+```powershell
+$env:BASE_URL = 'https://navs.bjlius.com'
+$env:CHROME_DEBUG_PORT = '9228'
+$env:ADMIN_USER = '<admin user>'
+$env:ADMIN_PASS = '<admin password>'
+npm run regression:chrome
+```
+
+If no Chrome is already exposing the configured DevTools port, `regression:chrome` starts a temporary headless Chrome profile under `D:\tmp\cf-navs-chrome-profile-<port>` and removes it after the run.
+
 Optional:
 
 ```powershell
@@ -46,7 +61,31 @@ $env:PERF_MAX_ICON_REQUESTS = '260'
 
 The JSON output includes a `checks` array with pass/fail status, actual values, and expected thresholds.
 
+For regression diagnostics, use:
+
+```powershell
+$env:REGRESSION_ALLOW_FAILURES = '1'
+$env:REGRESSION_MIN_BOOKMARK_CARDS = '1'
+$env:REGRESSION_MIN_CATEGORIES = '1'
+$env:REGRESSION_MIN_BOOKMARKS = '1'
+$env:REGRESSION_CLEAR_ORIGIN_DATA = '1'
+```
+
 ## Covered Scenarios
+
+### `regression:chrome`
+
+- Login through `/api/login` in page context and authenticated reload.
+- API smoke checks for `/api/health`, `/api/config`, `/api/data/version`, `/api/admin/data`, and `/api/iconify-search`.
+- Home render, bookmark cards, section count, theme toggle, local search and broken image count.
+- Admin entry from the home toolbar.
+- Admin category, bookmark, settings, and backup tabs.
+- Admin bookmark search input and clear.
+- Bookmark card right-click using CDP `Input.dispatchMouseEvent`, context menu edit action, edit modal open/cancel.
+- Logout and local auth cleanup.
+- Console errors, page exceptions, failed requests, and unexpected HTTP 4xx/5xx.
+
+### `perf:audit`
 
 - Authenticated home reload.
 - Full-page scroll to trigger lazy bookmark icons.
@@ -58,4 +97,4 @@ The JSON output includes a `checks` array with pass/fail status, actual values, 
 
 ## Request Discipline
 
-The audit intentionally exercises the same user-facing flows used during manual performance tuning. It does not call save, import, sort-save, or icon-cache refresh endpoints. That keeps it suitable for regression checks without modifying cloud data or increasing request volume beyond the measured browsing scenarios.
+Both scripts intentionally avoid save, delete, import, sort-save, and icon-cache refresh endpoints by default. That keeps them suitable for production regression checks without modifying cloud data or increasing request volume beyond measured browsing scenarios.

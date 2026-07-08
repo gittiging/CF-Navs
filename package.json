@@ -9,6 +9,7 @@
     "type-check": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
     "perf:audit": "node scripts/perf-audit.mjs",
+    "regression:chrome": "node scripts/chrome-regression.mjs",
     "setup:wrangler": "node scripts/create-wrangler-local.mjs",
     "wrangler": "node scripts/wrangler-config.mjs",
     "dev": "node scripts/wrangler-config.mjs dev",
@@ -26,7 +27,8 @@
     "typescript": "^5.5.4",
     "vite": "^5.4.6",
     "vitest": "^3.2.6",
-    "wrangler": "^4.107.0"
+    "wrangler": "^4.107.0",
+    "ws": "^8.21.0"
   },
   "dependencies": {
     "hono": "^4.12.27",

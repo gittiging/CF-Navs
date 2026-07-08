@@ -97,12 +97,13 @@
           <button
             type="button"
             class="admin-ghost-button"
+            data-testid="admin-category-sort-button"
             on:click={enterSort}
             disabled={!isAuthenticated || categoriesLoading || authLoading || categories.length < 2}
           >
             排序
           </button>
-          <button type="button" class="admin-primary-button" on:click={() => onOpenCreateCategory?.()} disabled={!isAuthenticated}>
+          <button type="button" class="admin-primary-button" data-testid="admin-create-category-button" on:click={() => onOpenCreateCategory?.()} disabled={!isAuthenticated}>
             新增分类
           </button>
         {/if}

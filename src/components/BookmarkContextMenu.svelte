@@ -9,7 +9,7 @@
 </script>
 
 <div class="bookmark-context-menu">
-  <button type="button" on:click={handleEditClick}>编辑</button>
+  <button type="button" data-testid="bookmark-context-edit" on:click={handleEditClick}>编辑</button>
 </div>
 
 <style>

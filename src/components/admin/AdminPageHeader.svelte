@@ -26,6 +26,7 @@
     <button
       type="button"
       class="icon-button"
+      data-testid="admin-home-button"
       on:click={handleSwitchToHome}
       title="返回首页"
       aria-label="返回首页"
@@ -37,6 +38,7 @@
     <button
       type="button"
       class="icon-button"
+      data-testid="admin-logout-button"
       on:click={handleLogout}
       disabled={authLoading}
       title="退出登录"
@@ -48,6 +50,7 @@
     <button
       type="button"
       class="icon-button"
+      data-testid="admin-login-button"
       on:click={handleOpenLogin}
       disabled={authLoading}
       title="管理员登录"

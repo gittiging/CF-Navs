@@ -290,7 +290,7 @@
 
 {#if open}
   <div class="modal-backdrop">
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="bookmark-modal-title">
+    <div class="modal-card" data-testid="bookmark-modal" role="dialog" aria-modal="true" aria-labelledby="bookmark-modal-title">
       <BookmarkModalHeader {mode} {loading} {deleting} onCancel={handleCancel} />
 
       <form class="modal-form" on:submit|preventDefault={handleSubmit}>

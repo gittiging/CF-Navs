@@ -30,6 +30,7 @@
   <button
     type="button"
     class="icon-button theme-toggle-button"
+    data-testid="home-theme-toggle"
     class:is-dark={activeTheme === 'dark'}
     on:click={handleToggleTheme}
     title={activeTheme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
@@ -42,6 +43,7 @@
     <button
       type="button"
       class="icon-button"
+      data-testid="home-admin-button"
       on:click={handleSwitchToAdmin}
       title="管理后台"
       aria-label="管理后台"
@@ -51,6 +53,7 @@
     <button
       type="button"
       class="icon-button"
+      data-testid="home-logout-button"
       on:click={handleLogout}
       disabled={authLoading}
       title="退出登录"
@@ -62,6 +65,7 @@
     <button
       type="button"
       class="icon-button"
+      data-testid="home-login-button"
       on:click={handleOpenLogin}
       title="管理员登录"
       aria-label="管理员登录"
