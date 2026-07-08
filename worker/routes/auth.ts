@@ -22,12 +22,12 @@ const ADMIN_PASSWORD_KEY = 'admin_password'
 const MIN_PASSWORD_LENGTH = 8
 const MAX_PASSWORD_LENGTH = 256
 
-function getSessionTtlSeconds(raw: string | undefined): number {
+export function getSessionTtlSeconds(raw: string | undefined): number {
   const parsed = Number.parseInt(raw ?? '', 10)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_SESSION_TTL_SECONDS
 }
 
-function isValidNewPassword(value: unknown): value is string {
+export function isValidNewPassword(value: unknown): value is string {
   return typeof value === 'string' && value.length >= MIN_PASSWORD_LENGTH && value.length <= MAX_PASSWORD_LENGTH
 }
 
