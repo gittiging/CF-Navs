@@ -1,5 +1,8 @@
 import './app.css'
+import { registerGlobalErrorHandlers } from './lib/errorMonitor'
 import App from './App.svelte'
+
+registerGlobalErrorHandlers()
 
 const app = new App({
   target: document.getElementById('app')!,
