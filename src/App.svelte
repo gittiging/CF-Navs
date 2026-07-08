@@ -21,8 +21,6 @@
     createImportExportState,
     exportDataToFile,
     importDataFromFile,
-    type ImportDeps,
-    type ImportExportState,
   } from './lib/appImportExport'
   import {
     createConfirmDialogState,
@@ -42,7 +40,7 @@
   import { buildOrderedBookmarkIdsForCategory } from './lib/appLocalData'
   import { createBookmarkDraft, createCategoryDraft, findBookmarkForEdit } from './lib/appModalState'
   import { canSeeHomeView, createHomeGateState, shouldOpenLoginGate, type AppView } from './lib/appNavigation'
-  import { isLatestSortRequest, normalizeSortIds, queueSortSave } from './lib/appSortQueue'
+  import { createOptimisticSortState, runOptimisticSort } from './lib/appSortQueue'
   import { getNextThemePreference, resolveAppThemeState } from './lib/appThemeState'
   import type { ImportSource } from './lib/importData'
   import { pruneBookmarkIconCacheStorageBackedByLocalStorage } from './lib/localBookmarkIconCache'
@@ -124,10 +122,8 @@
   const importExportState = createImportExportState()
   let preferredThemeMode: ThemeMode | null = null
   let prefersReducedMotion = false
-  let categorySortSavePromise: Promise<void> = Promise.resolve()
-  let bookmarkSortSavePromise: Promise<void> = Promise.resolve()
-  let categorySortRequestSeq = 0
-  let bookmarkSortRequestSeq = 0
+  const categorySortState = createOptimisticSortState()
+  const bookmarkSortState = createOptimisticSortState()
 
   configureDataService({
     onRootError: (message) => {
@@ -583,51 +579,29 @@
   async function handleSortCategories(ids: Array<string | number>): Promise<void> {
     categoryError = ''
 
-    const sortedIds = normalizeSortIds(ids)
-    const requestSeq = ++categorySortRequestSeq
-    await applyLocalCategorySort(sortedIds, false)
-
-    const savePromise = queueSortSave(categorySortSavePromise, async () => {
-      await api.categories.sort(sortedIds)
-    })
-    categorySortSavePromise = savePromise
-
-    try {
-      await savePromise
-      if (isLatestSortRequest(requestSeq, categorySortRequestSeq)) {
-        await persistCurrentAdminData()
-      }
-    } catch (error) {
-      if (isLatestSortRequest(requestSeq, categorySortRequestSeq)) {
+    await runOptimisticSort(categorySortState, ids, {
+      applyLocalSort: (sortedIds) => applyLocalCategorySort(sortedIds, false),
+      saveRemoteSort: (sortedIds) => api.categories.sort(sortedIds),
+      persist: persistCurrentAdminData,
+      restoreOnError: () => refreshLoggedInData(true),
+      onError: (error) => {
         categoryError = getErrorMessage(error)
-        await refreshLoggedInData(true).catch(() => undefined)
-      }
-    }
+      },
+    })
   }
 
   async function handleSortBookmarks(ids: Array<string | number>): Promise<void> {
     bookmarkError = ''
 
-    const sortedIds = normalizeSortIds(ids)
-    const requestSeq = ++bookmarkSortRequestSeq
-    await applyLocalBookmarkSort(sortedIds, false)
-
-    const savePromise = queueSortSave(bookmarkSortSavePromise, async () => {
-      await api.bookmarks.sort(sortedIds)
-    })
-    bookmarkSortSavePromise = savePromise
-
-    try {
-      await savePromise
-      if (isLatestSortRequest(requestSeq, bookmarkSortRequestSeq)) {
-        await persistCurrentAdminData()
-      }
-    } catch (error) {
-      if (isLatestSortRequest(requestSeq, bookmarkSortRequestSeq)) {
+    await runOptimisticSort(bookmarkSortState, ids, {
+      applyLocalSort: (sortedIds) => applyLocalBookmarkSort(sortedIds, false),
+      saveRemoteSort: (sortedIds) => api.bookmarks.sort(sortedIds),
+      persist: persistCurrentAdminData,
+      restoreOnError: () => refreshLoggedInData(true),
+      onError: (error) => {
         bookmarkError = getErrorMessage(error)
-        await refreshLoggedInData(true).catch(() => undefined)
-      }
-    }
+      },
+    })
   }
 
   // 首页按分类内拖拽排序：只给出该分类内的新顺序，这里据此重建“全量有序 id 列表”，
