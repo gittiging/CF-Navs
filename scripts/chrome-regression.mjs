@@ -763,16 +763,93 @@ async function runLogoutCheck() {
   })
 }
 
-function summarizeNetwork() {
+function expectedFailureKey(method, pathname, status) {
+  return `${method || 'GET'} ${pathname} ${status}`
+}
+
+function addExpectedFailure(allowances, { method = 'GET', pathname, status, reason }) {
+  const key = expectedFailureKey(method, pathname, status)
+  const current = allowances.get(key) || { count: 0, reasons: [] }
+  current.count += 1
+  current.reasons.push(reason)
+  allowances.set(key, current)
+}
+
+function buildExpectedFailureAllowances({ security, logout } = {}) {
+  const allowances = new Map()
+
+  if (security?.invalidToken?.ok) {
+    addExpectedFailure(allowances, {
+      pathname: '/api/admin/data',
+      status: 401,
+      reason: 'invalid token security probe',
+    })
+  }
+
+  if (security?.anonymousAccess?.ok) {
+    addExpectedFailure(allowances, {
+      pathname: '/api/admin/data',
+      status: 401,
+      reason: 'anonymous admin access security probe',
+    })
+  }
+
+  if (security?.passwordChange?.ok) {
+    addExpectedFailure(allowances, {
+      pathname: '/api/admin/data',
+      status: 401,
+      reason: 'old session invalidated by password change',
+    })
+  }
+
+  if (logout?.authCleared) {
+    addExpectedFailure(allowances, {
+      method: 'POST',
+      pathname: '/api/logout',
+      status: 401,
+      reason: 'logout after intentional session invalidation',
+    })
+  }
+
+  return allowances
+}
+
+function consumeExpectedFailure(request, allowances) {
+  if (!request.status) return null
+
+  const url = new URL(request.url)
+  if (url.origin !== TARGET_ORIGIN) return null
+
+  const key = expectedFailureKey(request.method, url.pathname, request.status)
+  const allowance = allowances.get(key)
+  if (!allowance || allowance.count <= 0) return null
+
+  allowance.count -= 1
+  return allowance.reasons.shift() || 'expected regression probe failure'
+}
+
+function summarizeNetwork(expectedContext = {}) {
   harvestNetworkEvents()
   const requests = Array.from(network.values()).filter((request) => request.url)
-  const failed = requests.filter((request) => {
+  const rawFailed = requests.filter((request) => {
     if (request.failed && !request.canceled) return true
     if (!request.status || request.status < 400) return false
     const url = new URL(request.url)
     if (url.pathname === '/favicon.ico' && request.status === 404) return false
     return true
   })
+  const allowances = buildExpectedFailureAllowances(expectedContext)
+  const failed = []
+  const expectedFailed = []
+
+  for (const request of rawFailed) {
+    const expectedReason = consumeExpectedFailure(request, allowances)
+    if (expectedReason) {
+      expectedFailed.push({ ...request, expectedReason })
+    } else {
+      failed.push(request)
+    }
+  }
 
   const byPath = {}
   for (const request of requests) {
@@ -785,9 +862,16 @@ function summarizeNetwork() {
     totalRequests: requests.length,
     failed: failed.slice(0, 30).map((request) => ({
       url: request.url,
+      method: request.method,
       status: request.status,
       errorText: request.errorText,
       canceled: request.canceled,
+    })),
+    expectedFailed: expectedFailed.slice(0, 30).map((request) => ({
+      url: request.url,
+      method: request.method,
+      status: request.status,
+      expectedReason: request.expectedReason,
     })),
     byPath,
   }
@@ -1035,7 +1119,7 @@ async function main() {
       contextMenu,
       security,
       logout,
-      network: summarizeNetwork(),
+      network: summarizeNetwork({ security, logout }),
       consoleErrors: consoleMessages,
       pageExceptions,
     }
