@@ -196,34 +196,43 @@
 - 新增 `tests/unit/dbSort.test.ts`，覆盖单批 SQL/参数顺序、跨 30 条分块时全局 sort 下标延续，以及空 id 列表不生成语句。
 - `sortRowsByIds` 继续负责 D1 `prepare/bind/run/batch` 执行，分类/书签路由调用面不变；测试文件数从 33 增至 34，测试数从 157 增至 160。
 
+### Round 20: 仓库文件归属整理
+
+- 删除嵌套脏目录 `CF-Navs/`（过时补丁脚本 + 规范文件副本）。
+- 新建 `_archive/` 归档目录，将本地无关资料（`sun-panel/` Sun-Panel 上游源码快照、`cf-navs-import.json` 导入数据样本）统一归档，`.gitignore` 同步为 `_archive/*`（忽略） + `!_archive/README.md`（跟踪用途说明）。
+- 删除空目录 `tmp/` 并将 `tmp/` 加入 `.gitignore`，防空目录被误建误提交。
+- `sun-panel/` 因被外部进程以 CWD 卡住无法直接 rename，最终通过 robocopy 逐文件搬迁绕开锁，搬空后源目录自然解除。
+- 保留核心框架结构不变，工具/IDE 固定路径配置（`.dev.vars`、`wrangler.local.toml`、`.agents/`、`.codex/`、`.claude/`）不动。
+- 本轮为纯仓库整理，不涉及源码逻辑改动；无新增测试文件。
+
 ## 当前大文件分布
 
 截至本轮完成后，主要业务文件行数约为：
 
 ```text
-816   src/App.svelte
-501   src/components/BookmarkEditModal.svelte
-459   src/components/SettingsPanel.svelte
-444   src/views/Home.svelte
-416   src/components/Sidebar.svelte
-396   src/app.css
-389   src/components/CategorySection.svelte
-389   src/lib/dataService.ts
-388   src/lib/api.ts
-387   src/components/settings/CardSettingsSection.svelte
-387   src/components/admin/BookmarkListPanel.svelte
-358   src/components/admin/adminListPanels.css
-326   src/components/BookmarkCard.svelte
-322   src/views/Admin.svelte
-300   src/components/admin/CategoryListPanel.svelte
-171   src/lib/homeData.ts
-148   src/components/admin/AdminTabContent.svelte
-93    src/lib/adminListState.ts
-36    src/lib/appThemeState.ts
-33    src/lib/appLazyComponent.ts
+722   src/App.svelte
+449   src/components/BookmarkEditModal.svelte
+415   src/components/SettingsPanel.svelte
+385   src/views/Home.svelte
+369   src/components/Sidebar.svelte
+347   src/app.css
+342   src/components/CategorySection.svelte
+335   src/lib/dataService.ts
+325   src/lib/api.ts
+339   src/components/settings/CardSettingsSection.svelte
+351   src/components/admin/BookmarkListPanel.svelte
+309   src/components/admin/adminListPanels.css
+290   src/components/BookmarkCard.svelte
+293   src/views/Admin.svelte
+269   src/components/admin/CategoryListPanel.svelte
+143   src/lib/homeData.ts
+139   src/components/admin/AdminTabContent.svelte
+79    src/lib/adminListState.ts
+30    src/lib/appThemeState.ts
+28    src/lib/appLazyComponent.ts
 ```
 
-`App.svelte` 仍是最大文件，但导入/导出 controller 和乐观排序编排已经下沉到 `appImportExport` 与 `appSortQueue`，当前主要承担登录、缓存、CRUD 后本地增量更新、弹窗协调和视图切换。后续如果继续拆分，应按 auth flow、CRUD/local mutation 或 modal controller 边界单独规划，不建议零散移动函数；当前主题状态推导已有 `appThemeState` 单元测试覆盖，动态组件懒加载缓存已有 `appLazyComponent` 单元测试覆盖。`Home.svelte` 已降到约 444 行，section key、active fallback、intersection 最近项和滚动目标计算已有 `homeData` 单元测试覆盖；继续拆分应避免在缺少浏览器验证时大改 observer 生命周期。`Admin.svelte` 已降到约 322 行，页眉和 tab 内容外壳已拆出；`adminListPanels.css` 已从约 538 行降到约 358 行，剩余内容以共享列表壳、分页、状态卡片和排序样式为主；后台列表搜索、分页、排序 id 推导已有 `adminListState` 单元测试覆盖。`BookmarkCard.svelte` 已降到约 326 行，`BookmarkEditModal.svelte` 已降到约 501 行；二者后续更适合做运行时验证驱动的小步清理，而不是继续无边界拆分。
+`App.svelte` 仍是最大文件，但导入/导出 controller 和乐观排序编排已经下沉到 `appImportExport` 与 `appSortQueue`，当前主要承担登录、缓存、CRUD 后本地增量更新、弹窗协调和视图切换。后续如果继续拆分，应按 auth flow、CRUD/local mutation 或 modal controller 边界单独规划，不建议零散移动函数；当前主题状态推导已有 `appThemeState` 单元测试覆盖，动态组件懒加载缓存已有 `appLazyComponent` 单元测试覆盖。`Home.svelte` 已降到约 385 行，section key、active fallback、intersection 最近项和滚动目标计算已有 `homeData` 单元测试覆盖；继续拆分应避免在缺少浏览器验证时大改 observer 生命周期。`Admin.svelte` 已降到约 293 行，页眉和 tab 内容外壳已拆出；`adminListPanels.css` 已从约 538 行降到约 309 行，剩余内容以共享列表壳、分页、状态卡片和排序样式为主；后台列表搜索、分页、排序 id 推导已有 `adminListState` 单元测试覆盖。`BookmarkCard.svelte` 已降到约 290 行，`BookmarkEditModal.svelte` 已降到约 449 行；二者后续更适合做运行时验证驱动的小步清理，而不是继续无边界拆分。
 
 ## 最近部署与生产验证
 
