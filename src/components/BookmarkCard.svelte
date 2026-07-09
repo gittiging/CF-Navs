@@ -44,7 +44,7 @@
   let syncLocalCachedIconUrl = ''
   let localCachePending = false
   let localCacheRequestId = 0
-  let iconInView = true
+  let iconInView = false
   let shellElement: HTMLDivElement | null = null
   let stopIconVisibilityObserver: (() => void) | null = null
   let contextMenuOpen = false

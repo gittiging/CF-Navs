@@ -32,4 +32,12 @@ describe('asset response headers', () => {
 
     expect(response.headers.get('Cache-Control')).toBe('private')
   })
+  it('ships static asset header rules for Cloudflare asset uploads', async () => {
+    const headersFile = await import('node:fs/promises').then(({ readFile }) => readFile('public/_headers', 'utf8'))
+
+    expect(headersFile).toContain('/assets/*')
+    expect(headersFile).toContain('Cache-Control: public, max-age=31536000, immutable')
+    expect(headersFile).toContain('/sw.js')
+    expect(headersFile).toContain('Cache-Control: no-cache, max-age=0, must-revalidate')
+  })
 })
