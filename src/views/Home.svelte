@@ -14,7 +14,6 @@
     getHomeSections,
     getHomeSectionsKey,
     getHomeScrollTarget,
-    isHomeScrollAligned,
     getNearestIntersectingSectionId,
     getVisibleCategoryIds,
     groupBookmarksByCategory,
@@ -25,11 +24,7 @@
   type AsyncVoid<T = void> = T | Promise<T>
   const SEARCH_FILTER_DEBOUNCE_MS = 120
   const NAV_SCROLL_TOP_OFFSET = 80
-  const NAV_SCROLL_ALIGNMENT_TOLERANCE = 4
-  const NAV_SCROLL_MAX_CORRECTIONS = 6
-  const NAV_SCROLL_INITIAL_CORRECTION_DELAY_MS = 650
-  const NAV_SCROLL_CORRECTION_DELAY_MS = 90
-  const NAV_SCROLL_RELEASE_DELAY_MS = 1300
+  const NAV_SCROLL_RELEASE_DELAY_MS = 900
   const homeData = createHomeDataMemo()
 
   export let categories: PublicCategory[] = []
@@ -54,13 +49,14 @@
   let sectionElements: HTMLElement[] = []
   let activeId = ''
   let isScrolling = false
+  let navigationLayoutReady = false
+  let navigationRequestId = 0
   let searchQuery = ''
   let sectionsKey = ''
   let isMounted = false
   let sectionObserver: IntersectionObserver | null = null
   let fallbackScrollTimer: ReturnType<typeof setTimeout> | null = null
   let searchFilterTimer: ReturnType<typeof setTimeout> | null = null
-  let navigationCorrectionTimer: ReturnType<typeof setTimeout> | null = null
   let navigationReleaseTimer: ReturnType<typeof setTimeout> | null = null
   let usingFallbackScroll = false
   let intersectingSectionTops = new Map<string, number>()
@@ -88,6 +84,7 @@
   $: nextSectionsKey = getHomeSectionsKey(sections)
   $: if (nextSectionsKey !== sectionsKey) {
     sectionsKey = nextSectionsKey
+    navigationLayoutReady = false
     void refreshSectionElementsAfterRender()
   }
 
@@ -168,11 +165,6 @@
 
   function clearNavigationTimers() {
     if (typeof window === 'undefined') return
-
-    if (navigationCorrectionTimer) {
-      window.clearTimeout(navigationCorrectionTimer)
-      navigationCorrectionTimer = null
-    }
 
     if (navigationReleaseTimer) {
       window.clearTimeout(navigationReleaseTimer)
@@ -264,6 +256,24 @@
     clearNavigationTimers()
   })
 
+  function waitForNextFrame(): Promise<void> {
+    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+      return Promise.resolve()
+    }
+
+    return new Promise((resolve) => {
+      window.requestAnimationFrame(() => resolve())
+    })
+  }
+
+  async function ensureNavigationLayoutReady(): Promise<void> {
+    if (navigationLayoutReady) return
+
+    navigationLayoutReady = true
+    await tick()
+    await waitForNextFrame()
+  }
+
   function scrollToSection(sectionElement: HTMLElement, behavior: ScrollBehavior): void {
     const targetRect = sectionElement.getBoundingClientRect()
     const finalScroll = getHomeScrollTarget({
@@ -280,48 +290,27 @@
     })
   }
 
-  function scheduleNavigationCorrection(targetId: string, attempt = 0): void {
-    if (typeof window === 'undefined') return
-
-    const delay = attempt === 0 ? NAV_SCROLL_INITIAL_CORRECTION_DELAY_MS : NAV_SCROLL_CORRECTION_DELAY_MS
-    navigationCorrectionTimer = window.setTimeout(() => {
-      navigationCorrectionTimer = null
-      const targetElement = document.querySelector<HTMLElement>(`[data-section-id="${targetId}"]`)
-      if (!targetElement) return
-
-      const targetTop = targetElement.getBoundingClientRect().top
-      if (isHomeScrollAligned({
-        targetTop,
-        desiredTopDistance: NAV_SCROLL_TOP_OFFSET,
-        tolerance: NAV_SCROLL_ALIGNMENT_TOLERANCE,
-      })) {
-        return
-      }
-
-      scrollToSection(targetElement, 'auto')
-      if (attempt < NAV_SCROLL_MAX_CORRECTIONS) {
-        scheduleNavigationCorrection(targetId, attempt + 1)
-      }
-    }, delay)
-  }
-
-  function handleNavigate(id: string | number) {
+  async function handleNavigate(id: string | number) {
     clearNavigationTimers()
+    const requestId = ++navigationRequestId
+    const targetId = String(id)
+
+    isScrolling = true
+    activeId = targetId
+
+    await ensureNavigationLayoutReady()
+    if (requestId !== navigationRequestId) return
 
     const targetElement =
-      sectionElements.find((sectionElement) => sectionElement.dataset.sectionId === String(id)) ??
-      document.querySelector<HTMLElement>(`[data-section-id="${id}"]`)
+      sectionElements.find((sectionElement) => sectionElement.dataset.sectionId === targetId) ??
+      document.querySelector<HTMLElement>(`[data-section-id="${targetId}"]`)
 
     if (!targetElement) {
-      activeId = String(id)
+      isScrolling = false
       return
     }
 
-    isScrolling = true
-    activeId = String(id)
-
     scrollToSection(targetElement, 'smooth')
-    scheduleNavigationCorrection(String(id))
 
     navigationReleaseTimer = setTimeout(() => {
       navigationReleaseTimer = null
@@ -369,7 +358,7 @@
       />
 
       {#if visibleCategories.length > 0}
-        <div class="section-list">
+        <div class="section-list" class:is-navigation-layout-ready={navigationLayoutReady}>
           {#each visibleCategories as category (category.id)}
             <div class="section-shell" data-section-id={`category-${category.id}`}>
               <CategorySection
@@ -488,6 +477,11 @@
   .section-shell {
     content-visibility: auto;
     contain-intrinsic-size: auto 420px;
+  }
+
+  .section-list.is-navigation-layout-ready .section-shell {
+    content-visibility: visible;
+    contain-intrinsic-size: none;
   }
 
   .home-footer {
