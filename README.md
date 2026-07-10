@@ -277,15 +277,13 @@ npx wrangler tail       # 查看 Worker 日志
 
 ## ⭐ Star 趋势
 
-<a href="https://www.star-history.com/#lbjxr/CF-Navs&Date">
+<a href="https://www.star-history.com/?repos=lbjxr%2FCF-Navs&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=lbjxr/CF-Navs&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=lbjxr/CF-Navs&type=Date&theme=default" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=lbjxr/CF-Navs&type=Date&theme=default" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=lbjxr/CF-Navs&type=date&theme=dark&legend=top-left&sealed_token=V4rtvFYvVd9g-HI39Mo4N22a7ui2BdiuZ3OTaby4cmTOr355SdgQFTMOgAJX4VxWHg82nLe-AQ_uImUwbjoKedjbrwudYrsH3HXoScVk70ngm7XcH_zatv1X1PIDN4LKyRN9wOnYdQ3FgHtsYzi6qsjQ2nDis6zS90Cn32uK2_rXfKNl_mmcXgkn-XRA" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=lbjxr/CF-Navs&type=date&legend=top-left&sealed_token=V4rtvFYvVd9g-HI39Mo4N22a7ui2BdiuZ3OTaby4cmTOr355SdgQFTMOgAJX4VxWHg82nLe-AQ_uImUwbjoKedjbrwudYrsH3HXoScVk70ngm7XcH_zatv1X1PIDN4LKyRN9wOnYdQ3FgHtsYzi6qsjQ2nDis6zS90Cn32uK2_rXfKNl_mmcXgkn-XRA" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=lbjxr/CF-Navs&type=date&legend=top-left&sealed_token=V4rtvFYvVd9g-HI39Mo4N22a7ui2BdiuZ3OTaby4cmTOr355SdgQFTMOgAJX4VxWHg82nLe-AQ_uImUwbjoKedjbrwudYrsH3HXoScVk70ngm7XcH_zatv1X1PIDN4LKyRN9wOnYdQ3FgHtsYzi6qsjQ2nDis6zS90Cn32uK2_rXfKNl_mmcXgkn-XRA" />
  </picture>
 </a>
-
-[查看 Star History](https://www.star-history.com/#lbjxr/CF-Navs&Date)
 
 ---
 
