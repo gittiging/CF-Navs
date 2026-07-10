@@ -8,6 +8,7 @@
     readCachedBookmarkIconDataUri,
     revokeLocalIconUrl,
   } from '../lib/localBookmarkIconCache'
+  import { resolveCachedBookmarkIconDisplaySrc } from '../lib/cachedBookmarkIconDisplay'
 
   export let id: string | number
   export let icon = ''
@@ -42,10 +43,15 @@
     resetLocalUrl()
     void loadCachedIcon(cacheKey, trimmedIconBlob, shouldWaitForLocalCache)
   }
-  $: displaySrc =
-    syncLocalUrl ||
-    localUrl ||
-    (!failed && isDataImage(trimmedIconBlob) ? trimmedIconBlob : shouldWaitForLocalCache ? '' : src)
+  $: displaySrc = resolveCachedBookmarkIconDisplaySrc({
+    syncLocalUrl,
+    localUrl,
+    failed,
+    iconBlob: trimmedIconBlob,
+    shouldWaitForLocalCache,
+    cachePending,
+    src,
+  })
 
   function resetLocalUrl() {
     if (localUrl) {
