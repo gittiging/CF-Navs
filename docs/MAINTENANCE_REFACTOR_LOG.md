@@ -2,6 +2,12 @@
 
 本文记录 2026-07 的多轮解耦调整、验证方式和后续维护建议。目标是降低大文件职责密度，让前端组件、worker 路由和纯逻辑 helper 更容易维护和扩展。
 
+## 2026-07 快照存储层拆分
+
+- 从 `publicDataCache.ts` 和 `adminDataCache.ts` 抽取 `snapshotStorage.ts`。
+- 通用层只负责浏览器持久化机制、容量限制和清理；业务模块保留结构校验、origin/session key 和认证隔离。
+- 保持已有缓存 key、payload 格式、localStorage 优先、Cache Storage 回退和 1.5 MB 上限不变。
+
 ## 调整范围
 
 ### Round 1: Admin 列表面板拆分
