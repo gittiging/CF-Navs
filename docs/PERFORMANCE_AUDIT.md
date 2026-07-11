@@ -231,3 +231,14 @@ After `npm run deploy`, the same recovery path was verified against `https://nav
 - Page exceptions and unexpected HTTP 4xx/5xx responses were zero.
 - The one console error and one failed request were both the deliberately disconnected version request.
 - The wider production regression passed 24 of 25 checks. The only failure was the pre-existing theme-toggle state assertion; all loading, data, admin, search, icon, context-menu, authentication, security, and error checks passed.
+
+## 2026-07-11 Error Reporting Hardening
+
+The public runtime-error endpoint was bounded to prevent abusive Worker and logging usage while reducing duplicate client reports.
+
+- Client reports now deduplicate the same fingerprint for 60 seconds and send at most six batches per minute.
+- Server payloads are limited to 16 KB and ten entries, with bounded normalized fields.
+- D1 atomic counters enforce twelve valid reports per source IP per minute across Worker isolates; locally blocked sources can be rejected from isolate memory.
+- Production probes returned HTTP 400 for invalid JSON, 413 for a 17 KB payload, 200 for the first twelve valid requests, and 429 for the thirteenth.
+- A KV-only counter and an isolate-memory counter were both rejected after production probes demonstrated their consistency/scope limitations.
+- Fresh-profile production regression completed with zero failed requests, console errors, or page exceptions after the deployment asset propagation window. The existing theme-toggle assertion remained the only unrelated failed check.
