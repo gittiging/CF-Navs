@@ -91,4 +91,17 @@ describe('publicDataCache', () => {
     expect(storage.getItem('unrelated')).toBe('keep')
     expect(Array.from({ length: storage.length }, (_, index) => storage.key(index))).toEqual(['unrelated'])
   })
+
+  it('does not retain an oversized aggregate snapshot', async () => {
+    const storage = installBrowserStorage()
+    const { readCachedPublicDataEntry, writeCachedPublicData } = await import('../../src/lib/publicDataCache')
+
+    await writeCachedPublicData({
+      ...publicData,
+      categories: [{ ...publicData.categories[0], title: 'x'.repeat(1_600_000) }],
+    }, 'large')
+
+    expect(storage.length).toBe(0)
+    expect(await readCachedPublicDataEntry()).toBeNull()
+  })
 })

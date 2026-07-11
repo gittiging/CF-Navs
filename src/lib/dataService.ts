@@ -39,9 +39,15 @@ import { adminStore, authStore, configStore, publicStore } from './stores'
 
 type DataServiceHooks = {
   onRootError: (message: string) => void
+  onLocalSnapshotRestored: () => void
+  onNetworkFallback: (message: string) => void
 }
 
-let hooks: DataServiceHooks = { onRootError: () => undefined }
+let hooks: DataServiceHooks = {
+  onRootError: () => undefined,
+  onLocalSnapshotRestored: () => undefined,
+  onNetworkFallback: () => undefined,
+}
 
 export function configureDataService(next: DataServiceHooks): void {
   hooks = next
@@ -100,6 +106,7 @@ export async function refreshPublicData(progressive = false): Promise<PublicData
   const cached = !isLoggedIn() ? await readCachedPublicDataEntry() : null
   if (cached?.data) {
     applyPublicData(cached.data, cached.version)
+    hooks.onLocalSnapshotRestored()
   }
 
   try {
@@ -160,6 +167,7 @@ export async function refreshPublicData(progressive = false): Promise<PublicData
     }
 
     if (cached?.data) {
+      hooks.onNetworkFallback('网络连接不稳定，当前显示的是本地缓存内容。你可以稍后刷新页面或检查网络连接。')
       return get(publicStore).data
     }
 
@@ -366,6 +374,7 @@ export async function refreshLoggedInData(forceRemote = false): Promise<void> {
 
   if (cached?.data.settings) {
     applyLoggedInData(cached.data, cached.version)
+    hooks.onLocalSnapshotRestored()
   }
 
   try {
@@ -381,6 +390,7 @@ export async function refreshLoggedInData(forceRemote = false): Promise<void> {
     await persistCurrentAdminData()
   } catch (error) {
     if (cached?.data.settings && !isUnauthorizedError(error)) {
+      hooks.onNetworkFallback('网络连接不稳定，当前显示的是本地缓存内容。你可以稍后刷新页面或检查网络连接。')
       return
     }
 

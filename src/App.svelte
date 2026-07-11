@@ -129,6 +129,12 @@
     onRootError: (message) => {
       rootError = message
     },
+    onLocalSnapshotRestored: () => {
+      revealHomeFromCurrentData()
+    },
+    onNetworkFallback: (message) => {
+      toastStore.addToast(message, 'info', { duration: 8000 })
+    },
   })
 
   $: config = $configStore.data
@@ -281,6 +287,20 @@
     loginModalOpen = homeGate.loginModalOpen
     currentView = homeGate.view
     booting = false
+  }
+
+  function revealHomeFromCurrentData(): void {
+    if (!booting) return
+
+    const homeGate = createHomeGateState({
+      publicMode: get(configStore).data?.public_mode,
+      authenticated: isLoggedIn(),
+    })
+    if (homeGate.view === 'home') {
+      loginModalOpen = false
+      currentView = 'home'
+      booting = false
+    }
   }
 
   function resetCategoryState(): void {

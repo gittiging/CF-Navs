@@ -16,7 +16,7 @@ import { ErrCode } from '../../shared/types'
 // 以便真实验证编排逻辑对 store 的写入与版本确认分支。
 // vi.mock 工厂会被提升到文件顶部，故 mock 对象也用 vi.hoisted 一并提升，
 // 避免工厂引用尚未初始化的顶层变量。
-const { api, publicCache, adminCache } = vi.hoisted(() => ({
+const { api, publicCache, adminCache, dataHooks } = vi.hoisted(() => ({
   api: {
     data: { version: vi.fn() },
     public: { getData: vi.fn() },
@@ -32,6 +32,11 @@ const { api, publicCache, adminCache } = vi.hoisted(() => ({
     readCachedAdminDataEntry: vi.fn(),
     writeCachedAdminData: vi.fn(),
     clearCachedAdminData: vi.fn(),
+  },
+  dataHooks: {
+    onRootError: vi.fn(),
+    onLocalSnapshotRestored: vi.fn(),
+    onNetworkFallback: vi.fn(),
   },
 }))
 
@@ -163,7 +168,11 @@ const onRootError = vi.fn()
 
 beforeEach(() => {
   vi.clearAllMocks()
-  configureDataService({ onRootError })
+  configureDataService({
+    onRootError,
+    onLocalSnapshotRestored: dataHooks.onLocalSnapshotRestored,
+    onNetworkFallback: dataHooks.onNetworkFallback,
+  })
   // reset all stores to a clean logged-out state
   authStore.setSession(null)
   adminStore.reset()
@@ -192,6 +201,19 @@ describe('dataService.refreshPublicData', () => {
     expect(api.data.version).toHaveBeenCalledOnce()
     expect(api.public.getData).not.toHaveBeenCalled()
     expect(getCurrentDataVersion()).toBe('v1')
+    expect(dataHooks.onLocalSnapshotRestored).toHaveBeenCalledOnce()
+  })
+
+  it('keeps cached public data visible and reports a recoverable network fallback', async () => {
+    publicCache.readCachedPublicDataEntry.mockResolvedValue({ data: makePublicData(), version: 'v1' })
+    api.data.version.mockRejectedValue(new Error('network timeout'))
+
+    const result = await refreshPublicData()
+
+    expect(result?.categories).toHaveLength(1)
+    expect(dataHooks.onLocalSnapshotRestored).toHaveBeenCalledOnce()
+    expect(dataHooks.onNetworkFallback).toHaveBeenCalledOnce()
+    expect(onRootError).not.toHaveBeenCalled()
   })
 
   it('fetches and caches full data when cached version is stale', async () => {
@@ -251,6 +273,18 @@ describe('dataService.refreshLoggedInData', () => {
 
     expect(api.admin.getData).not.toHaveBeenCalled()
     expect(get(adminStore).data.settings).toBeTruthy()
+    expect(dataHooks.onLocalSnapshotRestored).toHaveBeenCalledOnce()
+  })
+
+  it('keeps cached admin data visible and reports a recoverable network fallback', async () => {
+    adminCache.readCachedAdminDataEntry.mockResolvedValue({ data: makeAdminData(), version: 'v1' })
+    api.data.version.mockRejectedValue(new Error('network timeout'))
+
+    await refreshLoggedInData()
+
+    expect(get(adminStore).data.settings).toBeTruthy()
+    expect(dataHooks.onLocalSnapshotRestored).toHaveBeenCalledOnce()
+    expect(dataHooks.onNetworkFallback).toHaveBeenCalledOnce()
   })
 
   it('fetches admin data and persists snapshot when version changed', async () => {

@@ -4,7 +4,8 @@ This document records the current performance-sensitive behavior that should not
 
 ## Data Freshness
 
-- The frontend startup path may use local snapshots, but it must still validate freshness through the existing data-version flow.
+- A valid local snapshot should unlock the home view immediately on refresh; remote freshness validation continues in the background through the existing data-version flow.
+- If version validation fails for a non-auth reason, the snapshot remains visible and the UI shows a non-blocking refresh/network hint.
 - Saving categories, bookmarks, settings, sort order, or imports must continue to update cloud data and refresh local stores.
 - Multi-device refresh behavior depends on the version/data invalidation contract. Do not remove or bypass it to reduce requests.
 - Performance work should avoid adding background polling or extra startup requests.
@@ -28,6 +29,7 @@ This document records the current performance-sensitive behavior that should not
 - Category icons may stay cached because their count is small.
 - Cross-origin `opaque` Iconify responses must not be cached.
 - Storage growth should stay bounded during full-page scroll and admin navigation. Cache Storage should not return to the multi-megabyte growth caused by bulk bookmark icon caching.
+- Public and authenticated aggregate snapshots are capped at 1.5 MB each and must use one persistence backend at a time: localStorage first, Cache Storage only as fallback.
 
 ## Admin Loading
 

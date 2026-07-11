@@ -5,7 +5,7 @@ const CACHE_NAME = 'cf-navs-admin-data-v1'
 const CACHE_ORIGIN = 'https://cf-navs.local'
 const CACHE_PATH_PREFIX = '/admin-data/'
 const STORAGE_PREFIX = 'cf-navs.admin-data.'
-const MAX_LOCAL_STORAGE_BYTES = 3_500_000
+const MAX_SNAPSHOT_BYTES = 1_500_000
 
 type CachedAdminDataPayload = {
   saved_at: number
@@ -170,34 +170,35 @@ export async function writeCachedAdminData(data: AdminData, version: string | nu
   }
   const serialized = JSON.stringify(payload)
 
-  if (canUseCacheStorage()) {
-    try {
-      const cache = await caches.open(CACHE_NAME)
-      await deleteStaleCacheStorageEntries(cache, cacheKey)
-      await cache.put(
-        cacheRequest(cacheKey),
-        new Response(serialized, {
-          headers: {
-            'content-type': 'application/json',
-            'cache-control': 'no-store',
-          },
-        }),
-      )
-    } catch {
-      // Browser cache persistence is best-effort.
-    }
+  if (serialized.length > MAX_SNAPSHOT_BYTES) {
+    await clearCachedAdminData()
+    return
   }
 
   if (canUseLocalStorage()) {
     try {
       deleteStaleLocalStorageEntries(cacheKey)
-      if (serialized.length <= MAX_LOCAL_STORAGE_BYTES) {
-        localStorage.setItem(localStorageKey(cacheKey), serialized)
-      } else {
-        localStorage.removeItem(localStorageKey(cacheKey))
+      localStorage.setItem(localStorageKey(cacheKey), serialized)
+      if (canUseCacheStorage()) {
+        const cache = await caches.open(CACHE_NAME)
+        await deleteStaleCacheStorageEntries(cache, cacheKey)
+        await cache.delete(cacheRequest(cacheKey))
       }
+      return
     } catch {
       // Quota/private mode failures should not block the app.
+    }
+  }
+
+  if (canUseCacheStorage()) {
+    try {
+      const cache = await caches.open(CACHE_NAME)
+      await deleteStaleCacheStorageEntries(cache, cacheKey)
+      await cache.put(cacheRequest(cacheKey), new Response(serialized, {
+        headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+      }))
+    } catch {
+      // Browser cache persistence is best-effort.
     }
   }
 }

@@ -3,7 +3,7 @@ import type { PublicData } from '../../shared/types'
 const CACHE_NAME = 'cf-navs-public-data-v1'
 const CACHE_ORIGIN = 'https://cf-navs.local'
 const STORAGE_PREFIX = 'cf-navs.public-data.'
-const MAX_LOCAL_STORAGE_BYTES = 3_500_000
+const MAX_SNAPSHOT_BYTES = 1_500_000
 
 type CachedPublicDataPayload = {
   saved_at: number
@@ -102,28 +102,32 @@ export async function writeCachedPublicData(data: PublicData, version: string | 
   }
   const serialized = JSON.stringify(payload)
 
-  if (canUseCacheStorage()) {
+  if (serialized.length > MAX_SNAPSHOT_BYTES) {
+    await clearCachedPublicData()
+    return
+  }
+
+  if (canUseLocalStorage()) {
     try {
-      const cache = await caches.open(CACHE_NAME)
-      await cache.put(
-        cacheRequest(key),
-        new Response(serialized, {
-          headers: {
-            'content-type': 'application/json',
-            'cache-control': 'no-store',
-          },
-        }),
-      )
+      localStorage.setItem(`${STORAGE_PREFIX}${key}`, serialized)
+      if (canUseCacheStorage()) {
+        const cache = await caches.open(CACHE_NAME)
+        await cache.delete(cacheRequest(key))
+      }
+      return
     } catch {
-      // Browser cache persistence is best-effort.
+      // Quota/private mode failures should not block the app.
     }
   }
 
-  if (canUseLocalStorage() && serialized.length <= MAX_LOCAL_STORAGE_BYTES) {
+  if (canUseCacheStorage()) {
     try {
-      localStorage.setItem(`${STORAGE_PREFIX}${key}`, serialized)
+      const cache = await caches.open(CACHE_NAME)
+      await cache.put(cacheRequest(key), new Response(serialized, {
+        headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+      }))
     } catch {
-      // Quota/private mode failures should not block the app.
+      // Browser cache persistence is best-effort.
     }
   }
 }
