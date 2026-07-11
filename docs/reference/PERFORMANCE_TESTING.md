@@ -17,7 +17,7 @@ Default endpoint:
 http://127.0.0.1:9223
 ```
 
-The script opens or reuses a tab for `BASE_URL`, logs in through the page, runs the audit, prints JSON metrics, and removes `cf-navs.auth` from localStorage before exit.
+Each script creates a dedicated test tab for `BASE_URL`, logs in through the page, runs the audit, prints JSON metrics, removes `cf-navs.auth`, and closes only that test tab before exit. Existing user tabs are never reused or closed.
 
 ## Run
 
@@ -39,9 +39,11 @@ $env:ADMIN_PASS = '<admin password>'
 npm run regression:chrome
 ```
 
-If no Chrome is already exposing the configured DevTools port, `regression:chrome` starts a temporary headless Chrome profile under `D:\tmp\cf-navs-chrome-profile-<port>` and removes it after the run.
+If no Chrome is already exposing the configured DevTools port, `regression:chrome` starts a temporary headless Chrome profile under `D:\tmp\cf-navs-chrome-profile-<port>`. Its `finally` cleanup closes the test-owned browser, stops only Chrome processes matching that exact profile, verifies the remaining process count is zero, and then removes the profile.
 
 When Chrome is already running with a dynamic DevTools port, the script can also read Chrome's `DevToolsActivePort` file from the default profile and connect through the browser websocket directly. This handles Chrome instances where `/json/version` is not exposed on `9222` but the profile contains the active port and `/devtools/browser/...` websocket path. In that mode the JSON output reports `chromeConnectionMode: "devtools-active-port"` and does not start a temporary Chrome process.
+
+Existing Chrome and every visible/headed Chrome are user-owned. Both scripts create and close only their dedicated test target. They must never call `Browser.close` or terminate a Chrome process in those modes.
 
 For unattended runs where an existing Chrome profile must not be used, force a temporary headless profile and choose a free port:
 
@@ -53,6 +55,10 @@ npm run regression:chrome
 ```
 
 With `REGRESSION_FORCE_TEMP_CHROME=1`, the regression script skips `DevToolsActivePort`. If the configured port is already in use, it fails instead of attaching to an existing browser.
+
+For safety, `CHROME_USER_DATA_DIR` must end with `cf-navs-chrome-profile-<unique-id>`. The script refuses arbitrary profile paths so it can never delete a normal Chrome profile during cleanup.
+
+Never clean up with `taskkill /IM chrome.exe`, `Get-Process chrome | Stop-Process`, or another process-name-wide command. If exact-profile process cleanup fails, treat the regression run as failed and report the remaining process count.
 
 Optional:
 

@@ -29,6 +29,8 @@ const TARGET_URL = `${TARGET_ORIGIN}/`
 
 let nextId = 0
 let ws = null
+let pageTargetId = null
+let pageTargetCreatedByTest = false
 const pending = new Map()
 const events = []
 const network = new Map()
@@ -62,17 +64,12 @@ async function fetchJson(url, options) {
 
 async function getPageTarget() {
   const endpoint = `http://127.0.0.1:${CHROME_DEBUG_PORT}`
-  const targets = await fetchJson(`${endpoint}/json/list`)
-  const existing =
-    targets.find((target) => target.type === 'page' && target.url.startsWith(TARGET_ORIGIN)) ||
-    targets.find((target) => target.type === 'page')
-
-  if (existing) return existing
-
   const created = await fetchJson(`${endpoint}/json/new?${encodeURIComponent(TARGET_URL)}`, { method: 'PUT' })
   if (!created.webSocketDebuggerUrl) {
     throw new Error('Chrome target was created without webSocketDebuggerUrl.')
   }
+  pageTargetId = created.id || created.targetId || null
+  pageTargetCreatedByTest = true
   return created
 }
 
@@ -594,6 +591,16 @@ async function main() {
     }
   } finally {
     await clearAuth()
+    if (pageTargetCreatedByTest) {
+      try {
+        await send('Page.close', {}, 3000)
+      } catch {
+        if (pageTargetId) {
+          const endpoint = `http://127.0.0.1:${CHROME_DEBUG_PORT}`
+          await fetch(`${endpoint}/json/close/${pageTargetId}`).catch(() => undefined)
+        }
+      }
+    }
     ws?.close()
   }
 }

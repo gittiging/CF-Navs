@@ -2,6 +2,13 @@
 
 本文记录 2026-07 的多轮解耦调整、验证方式和后续维护建议。目标是降低大文件职责密度，让前端组件、worker 路由和纯逻辑 helper 更容易维护和扩展。
 
+## 2026-07 Chrome 测试进程清理加固
+
+- 真实浏览器脚本不再复用用户已有页面，统一创建并在 `finally` 中关闭专用测试 tab。
+- 用户已有浏览器和所有有头浏览器只关闭测试 target，禁止结束 Chrome 进程或影响其他 tab。
+- 自启无头 Chrome 使用安全命名的唯一 profile，优先执行 `Browser.close`，再按完整 profile 路径精确清理 Windows 子进程。
+- 清理后强制验证匹配进程数为 `0`，确认成功后才删除临时 profile；新增源码回归测试覆盖这些约束。
+
 ## 2026-07 项目目录整理
 
 - 将公开文档按 `guides/`、`reference/`、`history/` 和 `screenshots/` 分类，并新增 `docs/README.md` 文档索引。

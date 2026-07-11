@@ -15,10 +15,11 @@
 //   REGRESSION_MIN_BOOKMARKS=1
 //   REGRESSION_CLEAR_ORIGIN_DATA=1
 
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { rm } from 'node:fs/promises'
+import path from 'node:path'
 import WebSocket from 'ws'
 
 const BASE_URL = (process.env.BASE_URL || 'https://navs.bjlius.com').replace(/\/+$/, '')
@@ -26,6 +27,7 @@ const CHROME_DEBUG_PORT = process.env.CHROME_DEBUG_PORT || '9228'
 const CHROME_EXE = process.env.CHROME_EXE || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 const CHROME_USER_DATA_DIR =
   process.env.CHROME_USER_DATA_DIR || `D:\\tmp\\cf-navs-chrome-profile-${CHROME_DEBUG_PORT}`
+const SAFE_TEMP_PROFILE = /^cf-navs-chrome-profile-[a-z0-9_-]+$/i.test(path.basename(path.resolve(CHROME_USER_DATA_DIR)))
 const ADMIN_USER = process.env.ADMIN_USER || ''
 const ADMIN_PASS = process.env.ADMIN_PASS || ''
 const FORCE_TEMP_CHROME = process.env.REGRESSION_FORCE_TEMP_CHROME === '1'
@@ -46,6 +48,8 @@ let startedChrome = false
 let browserSessionMode = false
 let browserSessionId = null
 let browserTargetId = null
+let pageTargetId = null
+let pageTargetCreatedByTest = false
 let chromeConnectionMode = 'debug-port'
 let chromeConnectedPort = CHROME_DEBUG_PORT
 const pending = new Map()
@@ -109,6 +113,12 @@ async function ensureChrome() {
   if (!existsSync(CHROME_EXE)) {
     throw new Error(`Chrome debug port is unavailable and CHROME_EXE was not found: ${CHROME_EXE}`)
   }
+  if (!SAFE_TEMP_PROFILE) {
+    throw new Error(
+      'Refusing to start temporary Chrome with an unsafe profile path. ' +
+        'CHROME_USER_DATA_DIR must end with cf-navs-chrome-profile-<unique-id>.',
+    )
+  }
 
   chromeProcess = spawn(CHROME_EXE, [
     '--headless=new',
@@ -159,17 +169,12 @@ async function readDevToolsActivePort() {
 }
 
 async function getPageTarget() {
-  const targets = await fetchJson(`${DEBUG_ENDPOINT}/json/list`)
-  const existing =
-    targets.find((target) => target.type === 'page' && target.url.startsWith(TARGET_ORIGIN)) ||
-    targets.find((target) => target.type === 'page')
-
-  if (existing?.webSocketDebuggerUrl) return existing
-
   const created = await fetchJson(`${DEBUG_ENDPOINT}/json/new?${encodeURIComponent(TARGET_URL)}`, { method: 'PUT' })
   if (!created.webSocketDebuggerUrl) {
     throw new Error('Chrome target was created without webSocketDebuggerUrl.')
   }
+  pageTargetId = created.id || created.targetId || null
+  pageTargetCreatedByTest = true
   return created
 }
 
@@ -1039,11 +1044,25 @@ async function cleanup() {
     // Best effort.
   }
 
-  if (browserSessionMode && browserTargetId) {
+  if (startedChrome) {
+    try {
+      await send('Browser.close', {}, 3000)
+    } catch {
+      // The exact-profile process cleanup below remains authoritative.
+    }
+  } else if (browserSessionMode && browserTargetId) {
     try {
       await sendBrowserCommand('Target.closeTarget', { targetId: browserTargetId }, 3000)
     } catch {
       // Best effort cleanup.
+    }
+  } else if (pageTargetCreatedByTest) {
+    try {
+      await send('Page.close', {}, 3000)
+    } catch {
+      if (pageTargetId) {
+        await fetch(`${DEBUG_ENDPOINT}/json/close/${pageTargetId}`).catch(() => undefined)
+      }
     }
   }
 
@@ -1053,17 +1072,53 @@ async function cleanup() {
     // Best effort.
   }
 
-  if (startedChrome && chromeProcess) {
-    try {
-      chromeProcess.kill()
-    } catch {
-      // Best effort.
-    }
+  if (startedChrome) {
+    await stopTemporaryChromeProcesses()
+    await rm(CHROME_USER_DATA_DIR, { recursive: true, force: true })
+  }
+}
 
-    await sleep(500)
-    if (CHROME_USER_DATA_DIR.includes(`cf-navs-chrome-profile-${CHROME_DEBUG_PORT}`)) {
-      await rm(CHROME_USER_DATA_DIR, { recursive: true, force: true }).catch(() => undefined)
+async function stopTemporaryChromeProcesses() {
+  await sleep(800)
+
+  if (process.platform === 'win32') {
+    const script = [
+      "$profile = $env:CF_NAVS_TEST_CHROME_PROFILE",
+      "$matches = @(Get-CimInstance Win32_Process -Filter \"Name = 'chrome.exe'\" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($profile, [System.StringComparison]::OrdinalIgnoreCase) })",
+      'foreach ($process in $matches) { Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue }',
+      'Start-Sleep -Milliseconds 500',
+      "$remaining = @(Get-CimInstance Win32_Process -Filter \"Name = 'chrome.exe'\" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($profile, [System.StringComparison]::OrdinalIgnoreCase) })",
+      'Write-Output $remaining.Count',
+      'if ($remaining.Count -ne 0) { exit 1 }',
+    ].join('; ')
+    const result = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+      encoding: 'utf8',
+      env: {
+        SystemRoot: process.env.SystemRoot || 'C:\\Windows',
+        PATH: process.env.PATH || '',
+        CF_NAVS_TEST_CHROME_PROFILE: CHROME_USER_DATA_DIR,
+      },
+      windowsHide: true,
+    })
+
+    if (result.status !== 0 || result.stdout.trim() !== '0') {
+      throw new Error(
+        `Temporary Chrome cleanup failed for profile ${CHROME_USER_DATA_DIR}: ${result.stderr.trim() || result.stdout.trim()}`,
+      )
     }
+    return
+  }
+
+  if (chromeProcess && chromeProcess.exitCode === null) {
+    chromeProcess.kill('SIGTERM')
+    await sleep(800)
+  }
+  if (chromeProcess && chromeProcess.exitCode === null) {
+    chromeProcess.kill('SIGKILL')
+    await sleep(300)
+  }
+  if (chromeProcess && chromeProcess.exitCode === null) {
+    throw new Error(`Temporary Chrome process ${chromeProcess.pid} did not exit.`)
   }
 }
 

@@ -8,14 +8,41 @@ During the 2026-07 maintenance refactor rounds, the Chrome plugin's required Nod
 
 Use this when the browser-client / Node REPL surface is unavailable and the task still requires real Chrome verification.
 
+## Browser Ownership And Cleanup
+
+Before testing, classify the browser:
+
+- User-owned: the user's existing Chrome and every visible/headed Chrome. Create a dedicated test tab and save its `targetId`; cleanup must close only that target.
+- Test-owned: a headless Chrome started by the current command with a unique temporary `--user-data-dir`. Cleanup must run in `finally`, close the browser, stop only exact-profile child processes, verify none remain, and then delete the profile.
+
+Never terminate Chrome by process name. Commands such as `taskkill /IM chrome.exe /F` or `Get-Process chrome | Stop-Process` can destroy the user's browser session and are prohibited.
+
 ```powershell
-Start-Process -FilePath 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList '--headless=new','--disable-gpu','--remote-debugging-port=9228','--remote-allow-origins=*','--user-data-dir=D:\tmp\cf-navs-chrome-profile-9228','about:blank' -WindowStyle Hidden
+$testChrome = Start-Process -FilePath 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList '--headless=new','--disable-gpu','--remote-debugging-port=9228','--remote-allow-origins=*','--user-data-dir=D:\tmp\cf-navs-chrome-profile-9228','about:blank' -WindowStyle Hidden -PassThru
 ```
 
 Chrome 150 requires `PUT` for opening a new CDP target:
 
 ```text
 PUT http://127.0.0.1:9228/json/new?https%3A%2F%2Fnavs.bjlius.com
+```
+
+Always save the returned target id. For a user-owned or visible browser, finish with `Target.closeTarget` for that id and do nothing to the Chrome process. For the test-owned headless browser, use `Browser.close` and then verify cleanup by the exact profile path:
+
+```powershell
+$profile = 'D:\tmp\cf-navs-chrome-profile-9228'
+$matches = @(Get-CimInstance Win32_Process -Filter "Name = 'chrome.exe'" | Where-Object {
+  $_.CommandLine -and $_.CommandLine.Contains($profile, [System.StringComparison]::OrdinalIgnoreCase)
+})
+$matches | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+
+$remaining = @(Get-CimInstance Win32_Process -Filter "Name = 'chrome.exe'" | Where-Object {
+  $_.CommandLine -and $_.CommandLine.Contains($profile, [System.StringComparison]::OrdinalIgnoreCase)
+})
+if ($remaining.Count -ne 0) {
+  throw "Temporary Chrome cleanup failed: $($remaining.Count) process(es) remain"
+}
+Remove-Item -LiteralPath $profile -Recurse -Force
 ```
 
 `GET /json/new?...` returns an unsafe HTTP verb error.
