@@ -149,7 +149,7 @@
 
 ## 🚀 快速部署
 
-### 方式一：Wrangler CLI 部署（推荐）
+### 方式一：Wrangler CLI 部署
 
 **前置要求**：Node.js 18+、npm、Cloudflare 账号
 
@@ -181,7 +181,7 @@ npm run deploy
 
 部署成功后，访问 Wrangler 返回的 Workers URL。首次登录用户名 `admin`，密码为 `INIT_ADMIN_PASSWORD`。
 
-### 方式二：Cloudflare 一键部署
+### 方式二：Cloudflare 一键部署（推荐）
 
 适合不想在本地运行 CLI、希望直接从 GitHub 完成在线部署的用户。
 
@@ -196,7 +196,7 @@ INIT_ADMIN_PASSWORD = 你的管理员密码
 ```
 
 4. Cloudflare 会根据 `wrangler.toml` 识别并创建/绑定 D1 与 KV，部署脚本会自动执行 [schema.sql](schema.sql) 初始化数据库。
-5. 部署成功后访问 Cloudflare 返回的 Workers URL。首次登录用户名 `admin`，密码为 `INIT_ADMIN_PASSWORD`。
+5. 部署成功后访问 Cloudflare 返回的 Workers URL。首次登录用户名 `admin`，密码为在环境变量/Secrets 步骤中设置的 `INIT_ADMIN_PASSWORD` 的值（如果忘记，可以去 Worker 项目的设置中修改）。
 
 资源绑定名必须保持如下配置：
 
