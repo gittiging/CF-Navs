@@ -14,12 +14,16 @@
 
 1. 在 GitHub 上 Fork 仓库。
 2. 进入 **Workers & Pages → Create application → Import a repository**，关联 GitHub 并选择 fork。
-3. Deploy command 填写 `npm run build && npx wrangler deploy`。
-4. 首次部署完成后，在 Cloudflare 控制台创建 D1 数据库 `cf-navs-db` 和 KV 命名空间 `SESSION`。
-5. 在 D1 SQL Console 执行 [schema.sql](../../schema.sql)。
-6. 在 Worker 的 **Settings → Bindings** 中添加 D1 绑定 `DB` 和 KV 绑定 `SESSION`。
+3. 生产分支选择 `main`，Build command 填写 `npm run build`，Deploy command 填写 `npx wrangler deploy`。
+4. `wrangler.toml` 只声明 `DB` 和 `SESSION` 绑定，不包含真实资源 ID。首次部署时 Cloudflare 会自动创建并绑定 D1 与 KV 资源。
+5. 首次部署完成后，在 Cloudflare 控制台找到绑定到 `DB` 的 D1 数据库，在 SQL Console 执行一次 [schema.sql](../../schema.sql)。
+6. 在 Worker 的 **Settings → Bindings** 中确认 D1 绑定名为 `DB`、KV 绑定名为 `SESSION`。
 7. 在 Worker 的 **Settings → Variables & Secrets** 中添加 `INIT_ADMIN_USER`（可选，默认 `admin`）和 `INIT_ADMIN_PASSWORD`。
 8. 重新部署或重试最近一次部署。
+
+> 在线部署命令不要使用 `npm run deploy`：该命令会在 Wrangler 部署前执行远程 D1 初始化，适用于已经生成 `wrangler.local.toml` 的本地 CLI 部署。Git 自动部署请使用 Build command `npm run build` 和 Deploy command `npx wrangler deploy`，首次部署后再手动执行一次 `schema.sql`。
+
+首次资源创建请从生产分支 `main` 触发。资源创建完成前，建议关闭预览分支自动部署；预览分支可能使用 `wrangler versions upload`，不适合作为首次资源初始化流程。
 
 ## 📋 部署前准备
 

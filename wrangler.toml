@@ -23,8 +23,10 @@ SESSION_TTL = "604800"
 [[d1_databases]]
 binding = "DB"
 database_name = "cf-navs-db"
-database_id = "replace-with-your-d1-database-id"
+# Cloudflare Git deployments automatically provision the D1 database when the
+# database_id is omitted. Local CLI deployments use wrangler.local.toml.
 
 [[kv_namespaces]]
 binding = "SESSION"
-id = "replace-with-your-kv-namespace-id"
+# Cloudflare Git deployments automatically provision the KV namespace when the
+# id is omitted. Local CLI deployments use wrangler.local.toml.

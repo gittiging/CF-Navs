@@ -68,29 +68,32 @@ npm run deploy
 1. 在 GitHub 上 Fork 本仓库。
 2. 进入 Cloudflare 控制台的 **Workers & Pages → Create application → Import a repository**，关联 GitHub 并选择你的 fork。
 3. 生产分支选择 `main`，根目录填写 `/`。
-4. Deploy command 填写：
+4. Build command 填写 `npm run build`，Deploy command 填写：
 
 ```bash
-npm run build && npx wrangler deploy
+npx wrangler deploy
 ```
 
+`wrangler.toml` 只声明 `DB` 和 `SESSION` 绑定，不包含真实资源 ID。Cloudflare 首次部署时会自动创建并绑定 D1 与 KV 资源。
+
 5. 保存并完成首次部署。
-6. 在 Cloudflare 控制台创建 D1 数据库 `cf-navs-db`，打开 SQL Console，执行 [schema.sql](../../schema.sql)。
-7. 创建 KV 命名空间 `SESSION`。
-8. 在 Worker 的 **Settings → Bindings** 中添加：
+6. 在 Cloudflare 控制台找到绑定到 `DB` 的 D1 数据库，打开 SQL Console，执行一次 [schema.sql](../../schema.sql)。
+7. 确认 Worker 的 **Settings → Bindings** 中存在：
 
 | 类型 | 绑定名 | 选择 |
 | --- | --- | --- |
-| D1 database | `DB` | `cf-navs-db` |
+| D1 database | `DB` | Cloudflare 自动创建的 D1 数据库 |
 | KV namespace | `SESSION` | 你的会话 KV 命名空间 |
 
-9. 在 Worker 的 **Settings → Variables & Secrets** 中添加运行时 Secret：
+8. 在 Worker 的 **Settings → Variables & Secrets** 中添加运行时 Secret：
 
 ```text
 INIT_ADMIN_PASSWORD = 你的管理员密码
 ```
 
-10. 重新部署或重试最近一次部署，然后访问 Workers URL。
+9. 重新部署或重试最近一次部署，然后访问 Workers URL。后续 Fork 更新只需正常推送到 `main`，Cloudflare 会继续使用已有绑定。
+
+首次部署请从生产分支 `main` 触发。资源创建完成前不要使用预览分支自动部署。
 
 ## 🔑 首次登录
 

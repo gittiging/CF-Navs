@@ -10,6 +10,22 @@
 npx wrangler login
 ```
 
+### KV namespace `replace-with-your-kv-namespace-id` is not valid
+
+这是旧版公开 `wrangler.toml` 中的 KV 占位符被 Cloudflare 当成真实 ID 使用导致的。请将 Fork 更新到最新版本，确认 `wrangler.toml` 中的 `[[kv_namespaces]]` 只有 `binding = "SESSION"`、没有 `id = "replace-with-your-kv-namespace-id"`，然后重新运行在线部署。
+
+在线部署命令应使用：
+
+```bash
+npm run build && npx wrangler deploy
+```
+
+首次部署成功后，在 Cloudflare 控制台找到 `DB` 绑定对应的 D1 数据库，执行一次 [schema.sql](../../schema.sql)。本地 CLI 部署则运行 `npm run setup:wrangler` 生成被 Git 忽略的 `wrangler.local.toml`。
+
+### 日志路径包含 `/workers/scripts/.../versions`
+
+这通常表示 Cloudflare 正在执行预览分支的 `wrangler versions upload`。首次创建 D1/KV 资源时，请确认 Cloudflare Workers Builds 的生产分支是 `main`，Build command 为 `npm run build`，Deploy command 为 `npx wrangler deploy`，然后从 `main` 重新触发部署。资源创建完成后再按需开启预览分支部署。
+
 ### Missing binding
 
 通常是 D1 或 KV 绑定没有写入本地部署配置。

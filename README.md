@@ -189,15 +189,23 @@ npm run deploy
 
 1. 点击上方按钮，在 GitHub 中 Fork 本项目。请确认 Fork 后的仓库归属于你的 GitHub 账号。
 2. 进入 Cloudflare 控制台的 **Workers & Pages → Create application → Import a repository**，关联 GitHub 并选择你 Fork 后的 `CF-Navs` 仓库。不要选择上游仓库，也不要使用会自动创建新 GitHub 项目的 Cloudflare Deploy Button。
-3. 保持生产分支为 `main`，部署命令填写 `npm run deploy`。
+3. 保持生产分支为 `main`，构建命令填写 `npm run build`，部署命令填写：
+
+```bash
+npx wrangler deploy
+```
+
+`wrangler.toml` 只声明 `DB` 和 `SESSION` 绑定，不提交真实资源 ID。Cloudflare 首次部署时会自动创建并绑定对应的 D1 数据库和 KV 命名空间。
 4. 在环境变量/Secrets 步骤中设置：
 
 ```text
 INIT_ADMIN_PASSWORD = 你的管理员密码
 ```
 
-5. Cloudflare 会根据 `wrangler.toml` 识别并创建/绑定 D1 与 KV，部署脚本会自动执行 [schema.sql](schema.sql) 初始化数据库。
-6. 部署成功后访问 Cloudflare 返回的 Workers URL。首次登录用户名为 `INIT_ADMIN_USER`（默认 `admin`），密码为在环境变量/Secrets 步骤中设置的 `INIT_ADMIN_PASSWORD` 的值。
+5. 首次部署成功后，在 Cloudflare 控制台找到绑定到 `DB` 的 D1 数据库，在 SQL Console 中执行一次 [schema.sql](schema.sql)。KV 命名空间无需额外初始化。
+6. 重新部署或重试最近一次部署，确认站点可以正常访问。首次登录用户名为 `INIT_ADMIN_USER`（默认 `admin`），密码为在环境变量/Secrets 步骤中设置的 `INIT_ADMIN_PASSWORD` 的值。
+
+首次部署请从生产分支 `main` 触发。不要在资源尚未创建前使用预览分支自动部署；预览分支可能走 `wrangler versions upload` 流程。
 
 资源绑定名必须保持如下配置：
 
@@ -206,7 +214,7 @@ INIT_ADMIN_PASSWORD = 你的管理员密码
 | D1 database | `DB` | `cf-navs-db` |
 | KV namespace | `SESSION` | 你的会话 KV 命名空间 |
 
-> ⚠️ 这个部署方式必须使用你 Fork 后的仓库。控制台中 Worker 名称需与 `wrangler.toml` 的 `name` 一致（默认 `cf-navs`），并确保绑定名为 `DB` 和 `SESSION`。
+> ⚠️ 这个部署方式必须使用你 Fork 后的仓库。控制台中 Worker 名称需与 `wrangler.toml` 的 `name` 一致（默认 `cf-navs`），并确保绑定名为 `DB` 和 `SESSION`。不要把 `wrangler.local.toml`、真实资源 ID 或密码提交到 GitHub。
 
 ---
 

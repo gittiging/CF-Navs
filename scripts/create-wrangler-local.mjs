@@ -61,12 +61,15 @@ function setD1Id(config, id) {
     return config.replace('replace-with-your-d1-database-id', id)
   }
 
-  if (/database_id\s*=/.test(config)) {
-    return config.replace(/database_id\s*=\s*"[^"]*"/, `database_id = "${id}"`)
-  }
-
-  if (config.includes('[[d1_databases]]')) {
-    return config.replace(/(\[\[d1_databases\]\])/, `$1\nbinding = "DB"\ndatabase_name = "cf-navs-db"\ndatabase_id = "${id}"`)
+  const blockStart = config.indexOf('[[d1_databases]]')
+  if (blockStart >= 0) {
+    const nextBlock = config.indexOf('\n[[', blockStart + '[[d1_databases]]'.length)
+    const blockEnd = nextBlock >= 0 ? nextBlock + 1 : config.length
+    const block = config.slice(blockStart, blockEnd)
+    const updatedBlock = /database_id\s*=/.test(block)
+      ? block.replace(/database_id\s*=\s*"[^"]*"/, `database_id = "${id}"`)
+      : block.replace(/(database_name\s*=\s*"[^"]*")/, `$1\ndatabase_id = "${id}"`)
+    return `${config.slice(0, blockStart)}${updatedBlock}${config.slice(blockEnd)}`
   }
 
   return `${config.trimEnd()}\n\n[[d1_databases]]\nbinding = "DB"\ndatabase_name = "cf-navs-db"\ndatabase_id = "${id}"\n`
@@ -77,13 +80,15 @@ function setKvId(config, id) {
     return config.replace('replace-with-your-kv-namespace-id', id)
   }
 
-  const kvBlockPattern = /(\[\[kv_namespaces\]\]\s*[\r\n]+binding\s*=\s*"SESSION")/
-  if (/^\s*id\s*=/m.test(config)) {
-    return config.replace(/^\s*id\s*=\s*"[^"]*"/m, `id = "${id}"`)
-  }
-
-  if (kvBlockPattern.test(config)) {
-    return config.replace(kvBlockPattern, `$1\nid = "${id}"`)
+  const blockStart = config.indexOf('[[kv_namespaces]]')
+  if (blockStart >= 0) {
+    const nextBlock = config.indexOf('\n[[', blockStart + '[[kv_namespaces]]'.length)
+    const blockEnd = nextBlock >= 0 ? nextBlock + 1 : config.length
+    const block = config.slice(blockStart, blockEnd)
+    const updatedBlock = /^\s*id\s*=/m.test(block)
+      ? block.replace(/^\s*id\s*=\s*"[^"]*"/m, `id = "${id}"`)
+      : block.replace(/(binding\s*=\s*"SESSION")/, `$1\nid = "${id}"`)
+    return `${config.slice(0, blockStart)}${updatedBlock}${config.slice(blockEnd)}`
   }
 
   return `${config.trimEnd()}\n\n[[kv_namespaces]]\nbinding = "SESSION"\nid = "${id}"\n`

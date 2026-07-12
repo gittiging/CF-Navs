@@ -148,11 +148,11 @@ not_found_handling = "single-page-application"
 [[d1_databases]]                    # D1 数据库
 binding = "DB"
 database_name = "cf-navs-db"
-database_id = "..."
+# database_id omitted for Cloudflare Git automatic provisioning
 
 [[kv_namespaces]]                   # KV 命名空间
 binding = "SESSION"
-id = "..."
+# id omitted for Cloudflare Git automatic provisioning
 
 [vars]
 INIT_ADMIN_USER = "admin"          # 管理员初始化用户名

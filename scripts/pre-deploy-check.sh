@@ -69,18 +69,28 @@ echo "4. 检查 wrangler.toml 配置..."
 if [ -f "wrangler.toml" ]; then
   check_pass "wrangler.toml 文件存在"
 
+  WRANGLER_CONFIG="wrangler.toml"
+  if [ -f "wrangler.local.toml" ]; then
+    WRANGLER_CONFIG="wrangler.local.toml"
+    check_pass "检测到本地部署配置: wrangler.local.toml"
+  fi
+
   # 检查 D1 配置
-  if grep -q "database_id = \"REPLACE_WITH_YOUR_D1_ID\"" wrangler.toml; then
-    check_fail "D1 database_id 未配置，请运行: npx wrangler d1 create cf-navs-db"
-  else
+  if grep -Eq "replace-with-your-d1-database-id|database_id[[:space:]]*=[[:space:]]*\"REPLACE_WITH_YOUR_D1_ID\"" "$WRANGLER_CONFIG"; then
+    check_fail "D1 database_id 仍是占位符，请运行: npm run setup:wrangler"
+  elif grep -Eq "^[[:space:]]*database_id[[:space:]]*=" "$WRANGLER_CONFIG"; then
     check_pass "D1 database_id 已配置"
+  else
+    check_pass "D1 使用 Cloudflare 自动资源配置"
   fi
 
   # 检查 KV 配置
-  if grep -q "id = \"REPLACE_WITH_YOUR_KV_ID\"" wrangler.toml; then
-    check_fail "KV namespace id 未配置，请运行: npx wrangler kv namespace create SESSION"
-  else
+  if grep -Eq "replace-with-your-kv-namespace-id|id[[:space:]]*=[[:space:]]*\"REPLACE_WITH_YOUR_KV_ID\"" "$WRANGLER_CONFIG"; then
+    check_fail "KV namespace id 仍是占位符，请运行: npm run setup:wrangler"
+  elif grep -Eq "^[[:space:]]*id[[:space:]]*=" "$WRANGLER_CONFIG"; then
     check_pass "KV namespace id 已配置"
+  else
+    check_pass "KV 使用 Cloudflare 自动资源配置"
   fi
 else
   check_fail "wrangler.toml 文件不存在"
