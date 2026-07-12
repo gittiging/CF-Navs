@@ -178,4 +178,8 @@
   :global([data-theme='dark']) .bookmark-card-icon:hover {
     border-color: rgba(125, 211, 252, 0.26);
   }
+
+  :global([data-theme='dark']) .bookmark-icon-title {
+    color: var(--card-text-color, #e5eefb);
+  }
 </style>
