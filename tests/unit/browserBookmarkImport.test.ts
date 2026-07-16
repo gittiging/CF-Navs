@@ -39,12 +39,8 @@ describe('browser bookmark import', () => {
 </DL><p>`
 
     const result = prepareBrowserBookmarkHtml(exportedHtml)
-    expect(result.payload.categories.map(category => category.title)).toEqual([
-      'Bookmarks Bar',
-      'Bookmarks Bar / Nested Folder',
-      'Other Bookmarks',
-    ])
-    expect(result.payload.bookmarks.map(bookmark => bookmark.category_id)).toEqual([1, 2, 3])
+    expect(result.payload.categories.map(category => category.title)).toEqual(['浏览器书签', 'Nested Folder'])
+    expect(result.payload.bookmarks.map(bookmark => bookmark.category_id)).toEqual([1, 2, 1])
   })
 
   it('uses the fallback category only for links directly in the root list', () => {
@@ -56,7 +52,7 @@ describe('browser bookmark import', () => {
 </DL><p>`
 
     const result = prepareBrowserBookmarkHtml(exportedHtml)
-    expect(result.payload.categories.map(category => category.title)).toEqual(['浏览器书签', 'Folder'])
-    expect(result.payload.bookmarks.map(bookmark => bookmark.category_id)).toEqual([1, 2])
+    expect(result.payload.categories.map(category => category.title)).toEqual(['浏览器书签'])
+    expect(result.payload.bookmarks.map(bookmark => bookmark.category_id)).toEqual([1, 1])
   })
 })

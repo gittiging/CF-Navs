@@ -309,7 +309,9 @@ export function prepareBrowserBookmarkHtml(text: string): PreparedImport {
     if (/^<\/A/i.test(token)) {
       captureLink = false
       const categoryPath = dlStack[dlStack.length - 1]?.categoryPath ?? []
-      parseLink(linkTag, linkText, categoryPath.join(' / ') || '浏览器书签')
+      // 浏览器导出通常会用第一层 H3（如“收藏夹栏”）包住整个目录树；
+      // 该层只是导出容器，不作为业务分类，后续层级整体上移一级。
+      parseLink(linkTag, linkText, categoryPath.slice(1).join(' / ') || '浏览器书签')
       continue
     }
     if (/^<DD\b/i.test(token)) { captureDescription = true; descriptionText = ''; continue }
