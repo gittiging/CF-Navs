@@ -44,7 +44,7 @@
   let sortField: AdminBookmarkSortField | null = null
   let sortDirection: AdminBookmarkSortState['direction'] = null
   const sortColumns: Array<{ field: AdminBookmarkSortField; label: string }> = [
-    { field: 'title', label: '标题' }, { field: 'category', label: '分类' }, { field: 'url', label: '链接' }, { field: 'open_method', label: '打开方式' },
+    { field: 'title', label: '标题' }, { field: 'url', label: '链接' }, { field: 'category', label: '分类' }, { field: 'open_method', label: '打开方式' },
   ]
 
   $: filteredBookmarks = sortAdminBookmarks(filterAdminBookmarks(bookmarks, categories, search), { field: sortField, direction: sortDirection }, categories)
@@ -181,9 +181,9 @@
           <table class="admin-bookmark-table" class:is-sorting={sortMode}>
             <colgroup>
               {#if sortMode}<col style="width: 44px;" />{/if}
-              <col style="width: 30%;" />
-              <col style="width: 15%;" />
               <col style="width: 40%;" />
+              <col style="width: 40%;" />
+              <col style="width: 5%;" />
               <col style="width: 15%;" />
               {#if !sortMode}<col style="width: 122px;" />{/if}
             </colgroup>
@@ -245,10 +245,10 @@
                       </div>
                     </div>
                   </td>
-                  <td class="admin-cat-cell">{getCategoryTitle(bookmark.category_id)}</td>
                   <td class="admin-url-cell">
                     <a href={bookmark.url} target="_blank" rel="noreferrer">{bookmark.url}</a>
                   </td>
+                  <td class="admin-cat-cell">{getCategoryTitle(bookmark.category_id)}</td>
                   <td class="admin-method-cell">
                     {bookmark.open_method === 'same_tab' ? '当前标签页' : bookmark.open_method === 'modal' ? '当前页弹层' : '新标签页'}
                   </td>
@@ -322,7 +322,8 @@
 
 <style>
   .admin-bookmark-list-panel {
-    grid-template-rows: auto auto minmax(0, auto) auto;
+    height: min(760px, calc(100vh - 220px));
+    grid-template-rows: auto minmax(0, 1fr) auto;
     min-width: 0;
   }
 
