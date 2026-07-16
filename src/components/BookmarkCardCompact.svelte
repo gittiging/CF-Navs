@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PublicBookmark } from '../../shared/types'
   import BookmarkIcon from './BookmarkIcon.svelte'
+  import './bookmarkCardTooltip.css'
 
   type AsyncVoid<T = void> = T | Promise<T>
 
@@ -29,7 +30,7 @@
 </script>
 
 <a
-  class="bookmark-card bookmark-card-icon"
+  class="bookmark-card bookmark-card-icon bookmark-tooltip-anchor"
   class:sort-mode={sortMode}
   href={bookmark.url}
   target={openInNewTab ? '_blank' : undefined}
@@ -108,35 +109,6 @@
     transform: translateY(-1px);
   }
 
-  .bookmark-card-icon::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    left: 50%;
-    bottom: calc(100% + 10px);
-    z-index: 20;
-    width: max-content;
-    max-width: 240px;
-    padding: 0.45rem 0.65rem;
-    border-radius: 0.55rem;
-    background: rgba(15, 23, 42, 0.95);
-    color: #ffffff;
-    font-size: 0.78rem;
-    line-height: 1.45;
-    text-align: left;
-    white-space: pre-line;
-    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.24);
-    opacity: 0;
-    pointer-events: none;
-    transform: translate(-50%, 4px);
-    transition: opacity 0.16s ease, transform 0.16s ease;
-  }
-
-  .bookmark-card-icon:hover::after,
-  .bookmark-card-icon:focus-visible::after {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-
   .bookmark-icon-title {
     display: block;
     width: 100%;
@@ -161,10 +133,6 @@
 
   .bookmark-card-icon.sort-mode:hover {
     transform: none !important;
-  }
-
-  .bookmark-card-icon.sort-mode::after {
-    display: none;
   }
 
   :global([data-theme='dark']) .bookmark-card-icon {

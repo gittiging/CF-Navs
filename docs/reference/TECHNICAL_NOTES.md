@@ -56,11 +56,11 @@ https://api.iconify.design/{set}/{name}.svg
 
 新增/编辑弹窗和后台预览会使用同源 `/api/iconify/*` 代理，便于 Cloudflare edge cache 和同源 Service Worker 缓存复用同一份图标资源。首页展示持久化 Iconify 图标时可直接使用 `https://api.iconify.design/*.svg`，依赖浏览器 HTTP 缓存复用，避免把每个 Iconify 书签都变成 Worker 请求。Service Worker 不持久化跨域 `opaque` 响应，避免小 SVG 在 Cache Storage 中被浏览器按大配额填充。
 
-## 首页数据读取
-
 ## 描述显示策略
 
-全局设置 `card_description_mode` 是描述展示的权威值（`always`、`hover`、`hidden`）；`card_show_description` 仅作为旧客户端兼容字段派生输出。书签的 `description_mode` 为可空覆盖值，`NULL` 表示跟随全局。描述模式解析位于 `src/lib/descriptionMode.ts`，详情卡片在悬停模式下预留描述位置，并在触屏设备上保持隐藏。
+全局设置 `card_description_mode` 是描述展示的权威值（`always`、`hover`、`hidden`）；`card_show_description` 仅作为旧客户端兼容字段派生输出。书签的 `description_mode` 为可空覆盖值，`NULL` 表示跟随全局。描述模式解析位于 `src/lib/descriptionMode.ts`。
+
+详情卡片的悬停模式不渲染内联描述，因此标题布局与隐藏模式一致；悬停或键盘聚焦时通过卡片的 `data-tooltip` 和 `::after` 在卡片上方显示提示。详情与极简卡片共用 `src/components/bookmarkCardTooltip.css`，统一定位、层级、动画、触屏隐藏和减少动态效果行为。
 
 ## 管理批量操作与字段排序
 
@@ -69,6 +69,8 @@ https://api.iconify.design/{set}/{name}.svg
 ## 浏览器书签导入
 
 标准 Netscape Bookmark HTML 在浏览器内转换为共享 `ImportReq`。只导入 HTTP(S) 链接，顶层文件夹映射为分类，子文件夹书签并入顶层分类；合并模式由 Worker 生成完整目标数据后复用覆盖式事务重建，因而不会留下半次导入状态。
+
+## 首页数据读取
 
 公开首页优先请求：
 

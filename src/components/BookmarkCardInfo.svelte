@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { DescriptionDisplayMode, PublicBookmark } from '../../shared/types'
   import BookmarkIcon from './BookmarkIcon.svelte'
+  import './bookmarkCardTooltip.css'
 
   type AsyncVoid<T = void> = T | Promise<T>
 
@@ -32,8 +33,8 @@
 
 <a
   class="bookmark-card bookmark-card-info"
+  class:bookmark-tooltip-anchor={showDescription && descriptionMode === 'hover' && Boolean(bookmark.description)}
   class:sort-mode={sortMode}
-  class:is-description-hover={showDescription && descriptionMode === 'hover' && Boolean(bookmark.description)}
   href={bookmark.url}
   target={openInNewTab ? '_blank' : undefined}
   rel={openInNewTab ? 'noopener noreferrer' : undefined}
@@ -104,35 +105,6 @@
     transform: translateY(-1px);
   }
 
-  .bookmark-card-info.is-description-hover::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    left: 50%;
-    bottom: calc(100% + 10px);
-    z-index: 20;
-    width: max-content;
-    max-width: 240px;
-    padding: 0.45rem 0.65rem;
-    border-radius: 0.55rem;
-    background: rgba(15, 23, 42, 0.95);
-    color: #ffffff;
-    font-size: 0.78rem;
-    line-height: 1.45;
-    text-align: left;
-    white-space: pre-line;
-    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.24);
-    opacity: 0;
-    pointer-events: none;
-    transform: translate(-50%, 4px);
-    transition: opacity 0.16s ease, transform 0.16s ease;
-  }
-
-  .bookmark-card-info.is-description-hover:hover::after,
-  .bookmark-card-info.is-description-hover:focus-visible::after {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-
   .bookmark-card-info .bookmark-text {
     flex: 1;
     min-width: 0;
@@ -167,13 +139,6 @@
     line-height: 1.2;
     min-height: 0.9em;
     transition: opacity 0.16s ease, transform 0.16s ease;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .bookmark-card-info.is-description-hover::after {
-      transition: none;
-      transform: translate(-50%, 4px);
-    }
   }
 
   .bookmark-card-info.sort-mode {

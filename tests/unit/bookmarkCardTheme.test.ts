@@ -50,4 +50,18 @@ describe('bookmark card theme styles', () => {
     expect(emptyCardRule).toContain('var(--home-text-color')
     expect(emptyCardRule).not.toContain('rgba(100, 116, 139')
   })
+
+  it('shares one tooltip contract across compact and information cards', () => {
+    const compact = readFileSync('src/components/BookmarkCardCompact.svelte', 'utf8')
+    const info = readFileSync('src/components/BookmarkCardInfo.svelte', 'utf8')
+    const tooltip = readFileSync('src/components/bookmarkCardTooltip.css', 'utf8')
+
+    expect(compact).toContain("import './bookmarkCardTooltip.css'")
+    expect(info).toContain("import './bookmarkCardTooltip.css'")
+    expect(compact).toContain('bookmark-tooltip-anchor')
+    expect(info).toContain('class:bookmark-tooltip-anchor')
+    expect(tooltip).toContain('bottom: calc(100% + 10px);')
+    expect(tooltip).toContain('z-index: 20;')
+    expect(tooltip).toContain('@media (hover: none)')
+  })
 })
