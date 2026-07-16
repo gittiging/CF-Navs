@@ -149,13 +149,6 @@
     </div>
 
     <div class="admin-panel-scroll-body">
-      {#if !sortMode && !categoriesLoading && categories.length > 0}
-        <div class="admin-list-toolbar">
-          <div class="admin-bookmark-search-bar">
-            <input type="text" data-testid="admin-category-search" placeholder="搜索分类…" value={search} on:input={handleSearchInput} />
-          </div>
-        </div>
-      {/if}
       {#if categoriesLoading}
         <div class="admin-empty-state">
           <span class="admin-empty-state-icon">📁</span>
@@ -225,6 +218,13 @@
               {/if}
             </article>
           {/each}
+        </div>
+      {/if}
+      {#if !sortMode && !categoriesLoading && categories.length > 0}
+        <div class="admin-list-toolbar">
+          <div class="admin-bookmark-search-bar">
+            <input type="text" data-testid="admin-category-search" placeholder="搜索分类…" value={search} on:input={handleSearchInput} />
+          </div>
         </div>
       {/if}
     </div>

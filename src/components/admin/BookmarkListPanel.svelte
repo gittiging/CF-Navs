@@ -155,20 +155,6 @@
       </div>
     </div>
 
-    <div class="admin-list-toolbar">
-      {#if !sortMode}
-        <div class="admin-bookmark-search-bar">
-          <input
-            type="text"
-            data-testid="admin-bookmark-search"
-            placeholder="搜索标题、链接或分类…"
-            value={search}
-            on:input={handleSearchInput}
-          />
-        </div>
-      {/if}
-    </div>
-
     <div class="admin-panel-scroll-body admin-table-scroll-body">
       {#if bookmarksLoading}
         <div class="admin-empty-state">
@@ -294,6 +280,13 @@
               <p>换个关键词试试，或检查分类、链接是否匹配。</p>
             </div>
           {/if}
+        </div>
+      {/if}
+      {#if !sortMode && !bookmarksLoading && bookmarks.length > 0}
+        <div class="admin-list-toolbar">
+          <div class="admin-bookmark-search-bar">
+            <input type="text" data-testid="admin-bookmark-search" placeholder="搜索标题、链接或分类…" value={search} on:input={handleSearchInput} />
+          </div>
         </div>
       {/if}
     </div>
