@@ -181,10 +181,10 @@
           <table class="admin-bookmark-table" class:is-sorting={sortMode}>
             <colgroup>
               {#if sortMode}<col style="width: 44px;" />{/if}
-              <col style="width: 40%;" />
-              <col style="width: 40%;" />
+              <col style="width: 30%;" />
+              <col style="width: 53%;" />
               <col style="width: 5%;" />
-              <col style="width: 15%;" />
+              <col style="width: 12%;" />
               {#if !sortMode}<col style="width: 122px;" />{/if}
             </colgroup>
             <thead>
@@ -404,6 +404,7 @@
     padding: 0;
     display: inline-flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 5px;
   }
 
@@ -427,6 +428,8 @@
     display: flex;
     align-items: flex-start;
     gap: 12px;
+    justify-content: flex-start;
+    text-align: left;
   }
 
   .admin-bookmark-cell p {
